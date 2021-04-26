@@ -7,17 +7,18 @@
 
 ## 2. Table of Contents
 
-   3. [Publications](#markdown-header-3-publications)
-   4. [Aim](#markdown-header-4-aim)
-   5. [Capabilities](#markdown-header-5-capabilities)
-   6. [Installation Guide](#markdown-header-6-installation-guide)
-      1. [Installing locally](#markdown-header-61-installing-locally)
-      2. [Installing using Docker](#markdown-header-62-installing-using-docker)
-   7. [Configurations](#markdown-header-7-configurations)
-   8. [Run](#markdown-header-8-run)
-      1. [Run software locally](#markdown-header-81-run-software-locally)
-      2. [Run software on Docker](#markdown-header-82-run-software-docker)
-   9. [Acknowledgments](#markdown-header-9-acknowledgments)
+- [3. Publications](#3-publications)
+- [4. Aim](#4-aim)
+- [5. Capabilities](#5-capabilities)
+- [6. Installation Guide](#6-installation-guide)
+  * [6.1 Install locally](#61-install-locally)
+  * [6.2 Install using Docker](#62-install-using-docker)
+- [7. Configurations](#7-configurations)
+- [8. Run](#8-run)
+  * [8.1 Run software locally](#81-run-software-locally)
+  * [8.2 Run software on Docker](#82-run-software-on-docker)
+  * [1. Ensure that camera ports are configured correctly](#1-ensure-that-camera-ports-are-configured-correctly)
+- [9. Acknowledgements](#9-acknowledgements)
 
 
 ## 3. Publications
