@@ -128,5 +128,6 @@ cd mcmt-tracking/mcmt-tracking/bin
 
 We would like to thank the lead researcher in this project, Dr. Sutthiphong Srigrarom, for his continuous guidance and supervision with the development of this project. We would also like to acknowledge the hard work that everyone who have played a part in developing this software. The authors of the software are:
 
-1. Niven Sie Jun Liang (email: sieniven@gmail.com, GitHub profile: sieniven)
-2. Seah Shao Xuan (email: tbc, GitHub profile: tbc)
+1. Dr. Sutthiphong Srigrarom (email: spot.srigrarom@nus.edu.sg)
+2. Niven Sie Jun Liang (email: sieniven@gmail.com, GitHub profile: sieniven)
+3. Seah Shao Xuan (email: tbc, GitHub profile: tbc)
