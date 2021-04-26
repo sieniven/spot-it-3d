@@ -24,23 +24,23 @@
 ## 3. Publications
 
 1. Paper on trajectory-based target matching and re-identification between cameras:
-	* Niven Sie Jun Liang and Sutthiphong Srigrarom. "Multi-camera multi-target tracking systems with trajectory-based target matching and re-identification." In ***2021 IEEE International Conference on Unmanned Aerial Systems (ICUAS)***, IEEE, Athens, Greece, 2021.
+	* Niven Sie Jun Liang and Sutthiphong Srigrarom. "Multi-camera multi-target tracking systems with trajectory-based target matching and re-identification." In *2021 IEEE International Conference on Unmanned Aerial Systems (ICUAS)*, IEEE, Athens, Greece, 2021.
 	* Link to paper: (To be added into IEEE Xplore soon)
 
 2. Paper on field test validations for using trajectory-based tracking with a multiple camera system for target tracking and 3-dimensional localization:
-	* Niven Sie Jun Liang, Sutthiphong Srigrarom and Sunan Huang. "Field test validations of vision-based multi-camera multi-drone tracking and 3D localizing, using concurrent camera pose estimation." In ***2021 IEEE 6th International Conference on Control and Robotics Engineering (ICCRE)***, IEEE, Beijing, China, 2021.
+	* Niven Sie Jun Liang, Sutthiphong Srigrarom and Sunan Huang. "Field test validations of vision-based multi-camera multi-drone tracking and 3D localizing, using concurrent camera pose estimation." In *2021 IEEE 6th International Conference on Control and Robotics Engineering (ICCRE)*, IEEE, Beijing, China, 2021.
 	* Link to paper: https://ieeexplore.ieee.org/abstract/document/9358454
 
 3. Paper on state estimation filters and proposed use of implementing multiple state estimation filters in parrallel (Integrated Multiple Model):
-	* Sutthiphong Srigrarom, Niven Sie Jun Liang, Jiahe Yi, Kim Hoe Chew, Floorian Holzapfel, Henrik Hesse, Teng Hooi Chan and Jalvin Jiaxiang Chen. "Vision-based drones tracking using correlation filters and Linear Integrated Multiple Model." In ***2021 IEEE International Conference on Electrical Engineering/Electronics, Computer, Telecommunications and Information Technology (ECTI-CON)***, IEEE, Chiang Mai, Thailand, 2021.
+	* Sutthiphong Srigrarom, Niven Sie Jun Liang, Jiahe Yi, Kim Hoe Chew, Floorian Holzapfel, Henrik Hesse, Teng Hooi Chan and Jalvin Jiaxiang Chen. "Vision-based drones tracking using correlation filters and Linear Integrated Multiple Model." In *2021 IEEE International Conference on Electrical Engineering/Electronics, Computer, Telecommunications and Information Technology (ECTI-CON)*, IEEE, Chiang Mai, Thailand, 2021.
 	* Link to paper: (To be added into IEEE Xplore soon)
 
 4. Paper on integrated kinematic-based detection tracking estimation system for dynamic localization of small aerial vehicles:
-	* Sutthiphong Srigrarom, Shawndy Michael Lee, Mengda Lee, Foong Shaohui and Photchara Ratsamee. "An integrated vision-based detection-tracking-estimation system for dynamic localization of small aerial vehicles." In ***2020 IEEE 5th International Conference on Control and Robotics Engineering (ICCRE)***, IEEE, Osaka, Japan, 2020.
+	* Sutthiphong Srigrarom, Shawndy Michael Lee, Mengda Lee, Foong Shaohui and Photchara Ratsamee. "An integrated vision-based detection-tracking-estimation system for dynamic localization of small aerial vehicles." In *2020 IEEE 5th International Conference on Control and Robotics Engineering (ICCRE)*, IEEE, Osaka, Japan, 2020.
 	* Link to paper: https://ieeexplore.ieee.org/abstract/document/9096259
 
 5. Paper on binocular and stereo cameras for multiple drone detection and 3-dimensional localization:
-	* Yi, Jiahe, and Sutthiphong Srigrarom. "Near-Parallel Binocular-Like Camera Pair for Multi-Drone Detection and 3D Localization." In ***2020 16th International Conference on Control, Automation, Robotics and Vision (ICARCV)***, pp. 204-210. IEEE, Shenzhen, China, 2020.
+	* Yi, Jiahe, and Sutthiphong Srigrarom. "Near-Parallel Binocular-Like Camera Pair for Multi-Drone Detection and 3D Localization." In *2020 16th International Conference on Control, Automation, Robotics and Vision (ICARCV)*, pp. 204-210. IEEE, Shenzhen, China, 2020.
 	* Link to paper: https://ieeexplore.ieee.org/abstract/document/9305485
 
 
@@ -88,7 +88,7 @@ sudo docker-compose -f mcmt-tracker-launch.yaml build
 
 ## 7. Configurations
 
-* To configure the software to run in real-time, go to ***"mcmt-tracking/mcmt_tracking/multi-cam/bin"*** 
+* To configure the software to run in real-time, go to *"mcmt-tracking/mcmt_tracking/multi-cam/bin"* 
 * change to cameras = [{camera_index_1}, {camera_index_2}] in the main body. The camera indexes are OpenCV's camera port device indexes. 
 
 * To configure the tracking to run on video files, change cameras list to input the respective video filenames. For example, cameras = [{filename_1}, {filename_2}].
