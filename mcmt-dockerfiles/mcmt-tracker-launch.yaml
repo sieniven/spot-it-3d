@@ -1,0 +1,18 @@
+version: '3.3'
+
+services:
+  mcmt:
+    build:
+      dockerfile: ./mcmt-dockerfiles/Dockerfile.mcmt
+      context: ..
+    image: spotit3d/mcmt:mcmt
+    network_mode: "host"
+    devices:
+      - "/dev/video2:/dev/video0"
+      - "/dev/video4:/dev/video1"
+    environment:
+      - DISPLAY=unix$DISPLAY
+    volumes:
+      - /home/mcmt/mcmt-docker/
+    stop_signal: SIGINT
+    command: bash -c "cd mcmt-tracking/mcmt-tracking/bin && ./mcmt_tracker_docker.sh"
