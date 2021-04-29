@@ -17,15 +17,11 @@ UVCDriver::UVCDriver(const int & video_device_id, const std::string cam_index)
 {
 	RCLCPP_INFO(this->get_logger(), "Initialize UVCDriver" + cam_index);
 	node_handle_ = std::shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});
-
 	cap_ = cv::VideoCapture(video_device_id);
-
-	topic_name_ = "mcmt/raw_image_" + cam_index);
 	
-	// create raw image publisher with topic name
-	image_pub_ = this->create_publisher<sensor_msgs::msg::Image> (
-        topic_name_,
-        10);
+	// create raw image publisher with topic name "mcmt/raw_image_{cam_index}"
+	topic_name_ = "mcmt/raw_image_" + cam_index);
+	image_pub_ = this->create_publisher<sensor_msgs::msg::Image> (topic_name_, 10);
 
 	if (!cap_.isOpened()) {
     std::cout << "Error: Cannot open camera " + cam_index + "! Please check!" << std::endl;
@@ -33,7 +29,6 @@ UVCDriver::UVCDriver(const int & video_device_id, const std::string cam_index)
 	else {
 		std::cout << "Camera " + cam_index + " opened successful!" << std::endl;
 	}
-
 	cap_.set(cv::CAP_PROP_FPS, 25);	
 }
 
@@ -41,18 +36,16 @@ UVCDriver::UVCDriver(const int & video_device_id, const std::string cam_index)
 void UVCDriver::start_record()
 {
 	frame_id_ = 1;
-
 	while (1) {
+		// get camera frame
 		cap_ >> frame_;
-		
+		// check if getting frame was successful
 		if (frame_.empty()) {
 			std::cout << "Error: Video camera " + cam_index + " is disconnected!" << std::endl;
 			break;
 		}
-
 		// publish raw image frames as ROS2 messages
 		publish_image();
-
 		//  spin the UVCDriver node once
 		rclcpp::spin_some(node_handle_);
 
@@ -70,18 +63,18 @@ void UVCDriver::stop_record()
 // function to publish image
 void UVCDriver::publish_image()
 {
+	// set message header info
 	frame_id_str_ = std::to_string(frame_id_);
 	rclcpp::Time timestamp_ = this->now();
 	std_msgs::msg::Header header_;
 	std::string encoding_;
-	
 	header.stamp = timestamp_;
 	header.frame_id = frame_id_str_;
 
 	// publish raw image frame
 	encoding_ = mat_type2encoding(frame_.type());
 	sensor_msgs::msg::Image::SharedPtr msg = cv_bridge::CvImage(
-			header_, encoding_, frame_).toImageMsg();
+		header_, encoding_, frame_).toImageMsg();
 	image_pub_->publish(*msg);
 }
 
