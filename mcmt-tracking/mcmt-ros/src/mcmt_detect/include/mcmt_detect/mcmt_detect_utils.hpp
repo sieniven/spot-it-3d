@@ -1,8 +1,9 @@
-// Detection package utilities
-// Author: Niven Sie, sieniven@gmail.com
-// 
-// This code contains the common functions and classes Camera and Track, used in our 
-// main detection algorithm.
+/** Detection package utilities
+ * Author: Niven Sie, sieniven@gmail.com
+ * 
+ * This code contains the common functions and classes Camera and Track, used in our 
+ * main detection algorithm.
+ */
 
 #ifndef MCMT_DETECT_UTILS_HPP_
 #define MCMT_DETECT_UTILS_HPP_
@@ -15,6 +16,8 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
 #include <opencv2/tracking.hpp>
+#include <mcmt_detect/mcmt_params.hpp>
+#include <std_msgs/msg/header.hpp>
 
 #include <string>
 #include <memory>
@@ -25,10 +28,6 @@
 
 namespace mcmt
 {
-/** 
- * This class is for tracking the detected blobs, and using state estimators 
- * (KF and DCF) to predict the location of the track in the next frame.
-*/
 class Track {
 	public:
 		Track(int track_id, float size);
@@ -43,36 +42,40 @@ class Track {
 		int id_, age_, totalVisibleCount_, consecutiveInvisibleCount_;
 		bool is_goodtrack_, outOfSync_;
 		cv::Rect2d box_;
-}
+		cv::Mat state_;
 
-/** 
- * This class is for keeping track of the respective camera's information. 
- * It stores information of all tracked targets and initializes our blob detector.
- */
+		// declare class functions
+		void createConstantVelocityKF();
+};
+
+
 class Camera {
 	public:
-		Camera(const int index, const int fps);
+		Camera(McmtParams & params, int & cam_index, int frame_w, int frame_h);
+		cv::Mat frame_, masked_;
+		int frame_id_;
+
+		// declare class functions
+		void detect_and_track();
 
 	private:
 		// declare required variables
-		int index_, frame_w_, frame_h_, fps_, scale_factor_, aspect_ratio_, next_id_;
+		int index_, frame_w_, frame_h_, fps_, next_id_; 
+		float scale_factor_, aspect_ratio_;
 		bool downsample_;
 		std::vector<Track> tracks_, dead_tracks_;
 		std::vector<int> origin_;
-		cv::Mat mask;
 
 		// declare blob detector and background subtractor
-		cv::SimpleBlobDetector::Params params_;
 		cv::Ptr<cv::SimpleBlobDetector> detector_;
 		cv::Ptr<cv::BackgroundSubtractor> fgbg_;
 
 		// declare class functions
-		setup_system_objects();
-}
-
-/**
- * This function
- * 
- */
+		void detect_objects();
+		void remove_ground(int & dilation_iteration, float & background_contour_circularity, int & index);
+		
+};
 
 }
+
+#endif			// MCMT_DETECT_UTILS_HPP_

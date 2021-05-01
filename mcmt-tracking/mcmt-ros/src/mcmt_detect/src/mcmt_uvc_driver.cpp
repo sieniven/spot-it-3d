@@ -1,10 +1,11 @@
-// UVC Driver Node
-// Author: Niven Sie, sieniven@gmail.com
-// 
-// This code contains the UVCDriver node to run our camera, and publish the raw frames into
-// our ROS2 DDS-RTPS ecosystem.
+/** MCMT UVCDriver Node
+ * Author: Niven Sie, sieniven@gmail.com
+ * 
+ * This code contains the UVCDriver node class that runs our camera, and publish the 
+ * raw frames into our ROS2 DDS-RTPS ecosystem.
+ */
 
-#include <mcmt_detect/uvc_driver.hpp>
+#include <mcmt_detect/mcmt_uvc_driver.hpp>
 #include <stdlib.h>
 #include <iostream>
 #include <memory>
@@ -15,7 +16,7 @@ using mcmt::UVCDriver;
 UVCDriver::UVCDriver(const int & video_device_id, const std::string cam_index)
 : Node("UVCDriverNode" + cam_index)
 {
-	RCLCPP_INFO(this->get_logger(), "Initialize UVCDriver" + cam_index);
+	RCLCPP_INFO(this->get_logger(), "Initializing UVCDriver" + cam_index);
 	node_handle_ = std::shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});
 	cap_ = cv::VideoCapture(video_device_id);
 	

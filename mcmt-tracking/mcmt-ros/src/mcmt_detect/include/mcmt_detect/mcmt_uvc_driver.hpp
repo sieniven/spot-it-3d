@@ -1,8 +1,9 @@
-// UVC Driver Node
-// Author: Niven Sie, sieniven@gmail.com
-// 
-// This code contains the UVCDriver node to run our camera, and publish the raw frames into
-// our ROS2 DDS-RTPS ecosystem.
+/** MCMT UVCDriver Node
+ * Author: Niven Sie, sieniven@gmail.com
+ * 
+ * This code contains the UVCDriver node class that runs our camera, and publish the 
+ * raw frames into our ROS2 DDS-RTPS ecosystem.
+ */
 
 #ifndef MCMT_UVC_DRIVER_HPP_
 #define MCMT_UVC_DRIVER_HPP_
@@ -12,6 +13,7 @@
 #include <opencv2/ximgproc.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/header.hpp>
+#include <sensor_msgs/msg/image.hpp>
 #include <cv_bridge/cv_bridge.h>
 
 #include <string>
