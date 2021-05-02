@@ -60,7 +60,6 @@ void McmtProcessorNode::detection_callback()
 			// publish camera information
 			publish_info();
 		}
-		
 	)
 }
 
@@ -70,33 +69,35 @@ void McmtProcessorNode::detection_callback()
 void McmtProcessorNode::declare_parameters()
 {
 	// declare ROS2 video parameters
-	this->declare_paramter("VIDEO_INPUT_0");
-	this->declare_paramter("VIDEO_INPUT_1");
-	this->declare_paramter("FRAME_WIDTH");
-	this->declare_paramter("FRAME_HEIGHT");
-	this->declare_paramter("VIDEO_FPS");
-	this->declare_paramter("OUTPUT");
-	this->declare_paramter("OUTPUT_FILE");
-	this->declare_paramter("TRACK_CSV");
-	this->declare_paramter("FILENAME_0");
-	this->declare_paramter("FILENAME_1");
-	this->declare_paramter("MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES");
+	this->declare_parameter("VIDEO_INPUT_0");
+	this->declare_parameter("VIDEO_INPUT_1");
+	this->declare_parameter("FRAME_WIDTH");
+	this->declare_parameter("FRAME_HEIGHT");
+	this->declare_parameter("VIDEO_FPS");
+	this->declare_parameter("OUTPUT");
+	this->declare_parameter("OUTPUT_FILE");
+	this->declare_parameter("TRACK_CSV");
+	this->declare_parameter("FILENAME_0");
+	this->declare_parameter("FILENAME_1");
+	this->declare_parameter("MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES");
 	
 	// declare ROS2 filter parameters
-	this->declare_paramter("VISIBILITY_RATIO");
-	this->declare_paramter("VISIBILITY_THRESH");
-	this->declare_paramter("CONSECUTIVE_THRESH");
-	this->declare_paramter("AGE_THRESH");
-	this->declare_paramter("SECONDARY_FILTER");
-	this->declare_paramter("SEC_FILTER_DELAY");
+	this->declare_parameter("VISIBILITY_RATIO");
+	this->declare_parameter("VISIBILITY_THRESH");
+	this->declare_parameter("CONSECUTIVE_THRESH");
+	this->declare_parameter("AGE_THRESH");
+	this->declare_parameter("SECONDARY_FILTER");
+	this->declare_parameter("SEC_FILTER_DELAY");
 
 	// declare ROS2 background subtractor parameters
-	this->declare_paramter("FGBG_HISTORY");
-	this->declare_paramter("BACKGROUND_RATIO");
-	this->declare_paramter("NMIXTURES");
-	this->declare_paramter("BRIGHTNESS_GAIN");
-	this->declare_paramter("FGBG_LEARNING_RATE");
-	this->declare_paramter("DILATION_ITER");
+	this->declare_parameter("FGBG_HISTORY");
+	this->declare_parameter("BACKGROUND_RATIO");
+	this->declare_parameter("NMIXTURES");
+	this->declare_parameter("BRIGHTNESS_GAIN");
+	this->declare_parameter("FGBG_LEARNING_RATE");
+	this->declare_parameter("DILATION_ITER");
+	this->declare_parameter("REMOVE_GROUND_ITER");
+	this->declare_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
 }
 
 /**
@@ -106,33 +107,35 @@ void McmtProcessorNode::declare_parameters()
 void McmtProcessorNode::get_parameters(bool isrealtime)
 {
 	// get video parameters
-	VIDEO_INPUT_0_param = this->get_paramter("VIDEO_INPUT_0");
-	VIDEO_INPUT_1_param = this->get_paramter("VIDEO_INPUT_1");
-	FRAME_WIDTH_param = this->get_paramter("FRAME_WIDTH");
-	FRAME_HEIGHT_param = this->get_paramter("FRAME_HEIGHT");
-	VIDEO_FPS_param = this->get_paramter("VIDEO_FPS");
-	OUTPUT_param = this->get_paramter("OUTPUT");
-	OUTPUT_FILE_param = this->get_paramter("OUTPUT_FILE");
-	TRACK_CSV_param = this->get_paramter("TRACK_CSV");
-	FILENAME_0_param = this->get_paramter("FILENAME_0");
-	FILENAME_1_param = this->get_paramter("FILENAME_1");
-	MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_param = this->get_paramter("MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES");
+	VIDEO_INPUT_0_param = this->get_parameter("VIDEO_INPUT_0");
+	VIDEO_INPUT_1_param = this->get_parameter("VIDEO_INPUT_1");
+	FRAME_WIDTH_param = this->get_parameter("FRAME_WIDTH");
+	FRAME_HEIGHT_param = this->get_parameter("FRAME_HEIGHT");
+	VIDEO_FPS_param = this->get_parameter("VIDEO_FPS");
+	OUTPUT_param = this->get_parameter("OUTPUT");
+	OUTPUT_FILE_param = this->get_parameter("OUTPUT_FILE");
+	TRACK_CSV_param = this->get_parameter("TRACK_CSV");
+	FILENAME_0_param = this->get_parameter("FILENAME_0");
+	FILENAME_1_param = this->get_parameter("FILENAME_1");
+	MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_param = this->get_parameter("MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES");
 	
 	// get filter parameters
-	VISIBILITY_RATIO_param = this->get_paramter("VISIBILITY_RATIO");
-	VISIBILITY_THRESH_param = this->get_paramter("VISIBILITY_THRESH");
-	CONSECUTIVE_THRESH_param = this->get_paramter("CONSECUTIVE_THRESH");
-	AGE_THRESH_param = this->get_paramter("AGE_THRESH");
-	SECONDARY_FILTER_param = this->get_paramter("SECONDARY_FILTER");
-	SEC_FILTER_DELAY_param = this->get_paramter("SEC_FILTER_DELAY");
+	VISIBILITY_RATIO_param = this->get_parameter("VISIBILITY_RATIO");
+	VISIBILITY_THRESH_param = this->get_parameter("VISIBILITY_THRESH");
+	CONSECUTIVE_THRESH_param = this->get_parameter("CONSECUTIVE_THRESH");
+	AGE_THRESH_param = this->get_parameter("AGE_THRESH");
+	SECONDARY_FILTER_param = this->get_parameter("SECONDARY_FILTER");
+	SEC_FILTER_DELAY_param = this->get_parameter("SEC_FILTER_DELAY");
 
 	// get background subtractor parameters
-	FGBG_HISTORY_param = this->get_paramter("FGBG_HISTORY");
-	BACKGROUND_RATIO_param = this->get_paramter("BACKGROUND_RATIO");
-	NMIXTURES_param = this->get_paramter("NMIXTURES");
-	BRIGHTNESS_GAIN_param = this->get_paramter("BRIGHTNESS_GAIN");
-	FGBG_LEARNING_RATE_param = this->get_paramter("FGBG_LEARNING_RATE");
-	DILATION_ITER_param = this->get_paramter("DILATION_ITER");
+	FGBG_HISTORY_param = this->get_parameter("FGBG_HISTORY");
+	BACKGROUND_RATIO_param = this->get_parameter("BACKGROUND_RATIO");
+	NMIXTURES_param = this->get_parameter("NMIXTURES");
+	BRIGHTNESS_GAIN_param = this->get_parameter("BRIGHTNESS_GAIN");
+	FGBG_LEARNING_RATE_param = this->get_parameter("FGBG_LEARNING_RATE");
+	DILATION_ITER_param = this->get_parameter("DILATION_ITER");
+	REMOVE_GROUND_ITER_param = this->get_parameter("REMOVE_GROUND_ITER");
+	BACKGROUND_CONTOUR_CIRCULARITY_param = this->get_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
 
 	// initialize McmtParams class to store the parameter values
 	params_(isrealtime, 
@@ -158,7 +161,9 @@ void McmtProcessorNode::get_parameters(bool isrealtime)
 					NMIXTURES_param.as_int(),
 					BRIGHTNESS_GAIN_param.as_int(),
 					FGBG_LEARNING_RATE_param.as_double(),
-					DILATION_ITER_param.as_int()); 
+					DILATION_ITER_param.as_int(),
+					REMOVE_GROUND_ITER_param.as_double(),
+					BACKGROUND_CONTOUR_CIRCULARITY_param.as_double());
 }
 
 std::string McmtProcessorNode::mat_type2encoding(int mat_type)

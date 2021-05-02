@@ -32,7 +32,9 @@ McmtParams::McmtParams(
 	const int NMIXTURES,
 	const int BRIGHTNESS_GAIN,
 	const float FGBG_LEARNING_RATE,
-	const int DILATION_ITER) 
+	const int DILATION_ITER,
+	const float REMOVE_GROUND_ITER,
+	const float BACKGROUND_CONTOUR_CIRCULARITY)
 {
 	// initialize video parameters
 	is_realtime_ = is_realtime;
@@ -62,4 +64,6 @@ McmtParams::McmtParams(
 	BRIGHTNESS_GAIN_ = BRIGHTNESS_GAIN;
 	FGBG_LEARNING_RATE_ = FGBG_LEARNING_RATE;
 	DILATION_ITER_ = DILATION_ITER;
+	REMOVE_GROUND_ITER_ = REMOVE_GROUND_ITER;
+	BACKGROUND_CONTOUR_CIRCULARITY_ = BACKGROUND_CONTOUR_CIRCULARITY;
 }

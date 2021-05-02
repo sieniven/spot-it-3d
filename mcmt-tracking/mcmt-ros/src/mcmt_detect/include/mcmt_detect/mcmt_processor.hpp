@@ -40,7 +40,8 @@ class McmtProcessorNode : public rclcpp::Node {
 
 		// declare ROS2 background subtractor parameters
 		rclcpp::Parameter FGBG_HISTORY_param, NMIXTURES_param, BRIGHTNESS_GAIN_param, DILATION_ITER_param,
-											BACKGROUND_RATIO_param, FGBG_LEARNING_RATE_param;
+											BACKGROUND_RATIO_param, FGBG_LEARNING_RATE_param, REMOVE_GROUND_ITER_param,
+											BACKGROUND_CONTOUR_CIRCULARITY_param;
 		
 		// declare Params and Camera class variables
 		McmtParams params_;
@@ -60,3 +61,5 @@ class McmtProcessorNode : public rclcpp::Node {
 		void publish_info();
 };
 }
+
+#endif			// MCMT_PROCESSOR_HPP_
