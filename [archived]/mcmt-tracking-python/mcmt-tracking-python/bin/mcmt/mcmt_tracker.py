@@ -1,3 +1,9 @@
+import os
+import sys
+
+utils_path = os.path.join(os.path.expanduser('~'), 'spot-it-3d/[archived]/mcmt-tracking-python/mcmt-tracking-python/mcmt-tracking-python/multi-cam/utility')
+sys.path.append(utils_path)
+
 import multiprocessing
 from detection_process import SingleCameraDetector, MultiCameraDetector
 from trackplot_process import SingleCameraTrackPlot, MultiCameraTrackPlot
@@ -51,15 +57,15 @@ if __name__ == "__main__":
     """
     # single camera test:
     # cameras = [0]
-    # cameras = ['../../data/vidtest3.mp4']
+    # cameras = ['/home/niven/spot-it-3d/data/vidtest3.mp4']
 
     # multi cameras test:
     # cameras = [2, 4]
-    # cameras = ['../../data/vidtest3.mp4', '../../../../data/vidtest4.mp4']
-    # cameras = ['../../../../data/00012_Trim_1.mp4', '../../../../data/MVI_6690_Trim_1.mp4']
-    # cameras = ['../../data/00012_Trim_2.mp4', '../../data/MVI_6690_Trim_2.mp4']
-    # cameras = ['../../data/00014_Trim.mp4', '../../data/IMG_2059_HEVC.mp4']
-    # cameras = ['../../data/VID_20201110_120105_Trim.mp4', '../../data/00209_Trim.mp4']
+    cameras = ['/home/niven/spot-it-3d/data/vidtest3.mp4', '/home/niven/spot-it-3d/data/vidtest4.mp4']
+    # cameras = ['/home/niven/spot-it-3d/data/00012_Trim_1.mp4', '/home/niven/spot-it-3d/data/MVI_6690_Trim_1.mp4']
+    # cameras = ['/home/niven/spot-it-3d/data/00012_Trim_2.mp4', '/home/niven/spot-it-3d/data/MVI_6690_Trim_2.mp4']
+    # cameras = ['/home/niven/spot-it-3d/data/00014_Trim.mp4', '/home/niven/spot-it-3d/data/IMG_2059_HEVC.mp4']
+    # cameras = ['/home/niven/spot-it-3d/data/VID_20201110_120105_Trim.mp4', '/home/niven/spot-it-3d/data/00209_Trim.mp4']
 
     if len(cameras) == 1:
         single_camera_tracking(cameras[0])

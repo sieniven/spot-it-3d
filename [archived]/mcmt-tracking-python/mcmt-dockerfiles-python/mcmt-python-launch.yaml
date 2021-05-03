@@ -3,7 +3,7 @@ version: '3.3'
 services:
   mcmt:
     build:
-      dockerfile: ./mcmt-dockerfiles/Dockerfile.mcmt
+      dockerfile: ./mcmt-dockerfiles-python/Dockerfile.mcmt
       context: ..
     image: spotit3d/mcmt:mcmt
     network_mode: "host"
@@ -15,4 +15,4 @@ services:
     volumes:
       - /home/mcmt/mcmt-docker/
     stop_signal: SIGINT
-    command: bash -c "cd mcmt-tracking/mcmt-tracking/bin && ./mcmt_tracker_docker.sh"
+    command: bash -c "cd spot-it-3d/mcmt-tracking-python/bin && ./mcmt_tracker_docker.sh"

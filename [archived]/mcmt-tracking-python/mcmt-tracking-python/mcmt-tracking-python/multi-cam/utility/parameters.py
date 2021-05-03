@@ -24,15 +24,15 @@ VIDEO_FPS = 30
 
 # STRING
 # File path to output feed.
-OUTPUT = '../data/output.mp4'
+OUTPUT = '/home/niven/spot-it-3d/data/output.mp4'
 
 # STRING
 # File path to annotated output feed.
-OUTPUT_FILE = '../data/output_file.mp4'
+OUTPUT_FILE = '/home/niven/spot-it-3d/data/output_file.mp4'
 
 # STRING
 # File path to export CSV track data.
-TRACK_CSV = '../data/plot.csv'
+TRACK_CSV = '/home/niven/spot-it-3d/data/plot.csv'
 
 # INT
 # Maximum number of failed consecutive read frames.

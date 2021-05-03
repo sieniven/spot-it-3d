@@ -32,7 +32,7 @@ class Track {
 		Track(int track_id, float size, cv::Point2f centroid);
 		
 		// variable to store predicted locations from kf
-		cv::Point predicted_;
+		cv::Point2f predicted_;
 
 		// bool variable to flag if dcf has been initialized
 		bool is_dcf_init_;
@@ -75,20 +75,31 @@ class Camera {
 		float scale_factor_, aspect_ratio_;
 		bool downsample_;
 
-		// declare tracking variables
-		std::vector<Track> tracks_;
-		std::vector<int> dead_tracks_, origin_;
+		// declare detection variables
 		std::vector<float> sizes_;
 		std::vector<cv::Point2f> centroids_;
+
+		// declare tracking variables
+		std::vector<Track> tracks_;
+		std::vector<int> origin_, unassigned_tracks_, unassigned_detections_;
+		// we store the matched track index and detection index in the assigments vector
+		std::vector<std::vector<int>> assignments_;
+
+		// declare variable for re-identification
+		std::vector<int> dead_tracks_;
 
 		// declare blob detector and background subtractor
 		cv::Ptr<cv::SimpleBlobDetector> detector_;
 		cv::Ptr<cv::BackgroundSubtractor> fgbg_;
 
-		// declare class functions
+		// declare utility functions
+		int average_brightness();
+		float euclideanDist(cv::Point2f & p, cv::Point2f & q);
+		std::vector<int> apply_hungarian_algo(std::vector<std::vector<double>> & cost_matrix);
+		
+		// declare detection and tracking functions
 		void detect_objects();
 		void remove_ground();
-		int average_brightness();
 		void predict_new_locations_of_tracks();
 		void detection_to_track_assignment();
 		void update_assigned_tracks();

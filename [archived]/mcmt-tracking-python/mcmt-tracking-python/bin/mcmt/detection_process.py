@@ -1,3 +1,4 @@
+import os
 import sys
 import csv
 import cv2
@@ -8,7 +9,6 @@ import numpy as np
 from multiprocessing import Process
 
 # local imported codes
-sys.path.append('../mcmt-tracking/multi-cam/utility/')
 import parameters as parm
 from object_tracking_util import Camera, scalar_to_rgb, setup_system_objects, \
                                     single_cam_detector, multi_cam_detector

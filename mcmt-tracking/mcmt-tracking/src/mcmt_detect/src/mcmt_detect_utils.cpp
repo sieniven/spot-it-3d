@@ -11,7 +11,9 @@
 #include <stdlib.h>
 #include <math.h>
 #include <memory>
+#include <algorithm>
 #include <functional>
+#include <Hungarian.h>
 
 using namespace mcmt;
 
@@ -149,18 +151,38 @@ void Camera::detect_and_track()
 	// initialize new mask of zeros
 	mask_ = new cv::Mat::zeros(frame_h_, frame_w_, CV_8UC1);
 	
-	// detection and tracking pipeline
+	// clear detection variable vectors
+	sizes_.clear();
+	centroids_.clear();
+
+	// get detections
 	detect_objects();
+	
+	// apply state estimation filters
 	predict_new_locations_of_tracks();
+
+	// clear tracking variable vectors
+	assignments_.clear();
+	unassigned_tracks_.clear();
+	unassigned_detections_.clear();
+
+	// get cost matrix and match detections and track targets
 	detection_to_track_assignment();
+
+	// updated assigned tracks
 	update_assigned_tracks();
+
+	// update unassigned tracks, and delete lost tracks
 	update_unassigned_tracks();
 	delete_lost_tracks();
+
+	// create new tracks
 	create_new_tracks();
 
 	// convert masked to BGR
 	cv::cvtColor(masked_, masked_, cv::COLOR_GRAY2BGR);
 
+	// filter the tracks
 	filter_tracks();
 
 	// show masked frame
@@ -198,8 +220,6 @@ void Camera::detect_objects()
 	detector_->detect(masked_, keypoints);
 
 	// clear vectors to store sizes and centroids of current frame's detected targets
-	sizes_.clear();
-	centroids_.clear();
 	for (auto & it : keypoints) {
 		centroids_.push_back(it.pt);
 		sizes_.push_back(it.size);
@@ -233,30 +253,6 @@ void Camera::remove_ground()
 }
 
 /**
- * This function calculates the average brightness value of the frame
- */
-int Camera::average_brightness()
-{
-	// declare and initialize required variables
-	cv::Mat hist;
-	int channels[] = {0};
-	int bins[] = {16};
-	float hrange = {0, 256};
-	int weighted_sum = 0;
-
-	// get grayscale frame and calculate histogram
-	cv::cvtColor(frame_, gray_, cv::COLOR_BGR2GRAY);
-	cv::calcHist(gray_, 1, channels, mask_, hist, 1, bins, hrange);
-
-	// iterate through each bin
-	for (int i=0; i < hist.cols; i++) {
-		weighted_sum += hist.at<int>(0, i);
-	}
-	
-	return int((weighted_sum/cv::sum(hist)) * (256/16));
-}
-
-/**
  * This function uses the kalman filter and DCF to predict new location of current tracks
  * in the next frame.
  */
@@ -284,5 +280,130 @@ void Camera::predict_new_locations_of_tracks()
  */
 void Camera::detection_to_track_assignment()
 {
+	// declare non assignment cost
+	float cost_of_non_assignment = 10 * scale_factor_;
 
+	// num of tracks and centroids, and get min and max sizes
+	int num_of_tracks = tracks_.size();
+	int num_of_centroids = centroids_.size();
+	int total_size = num_of_tracks + num_of_centroids;
+
+	// declare 2-D cost matrix and required variables
+	std::vector<double> empty_rows(total_size, 0.0);
+	std::vector<std::vector<double>> cost(total_size, empty_rows);
+	int row_index = 0;
+	int col_index = 0;
+	std::vector<int> assignments_all;
+
+	// get euclidean distance of every detected centroid with each track's predicted location
+	for (auto & track : tracks_) {
+		for (auto & centroid : centroids_) {
+			cost[row_index][col_index] = euclideanDist(track.predicted_, centroid);
+			col_index++;
+		}
+		// padding cost matrix with dummy columns to account for unassigned tracks, used to fill
+		// the top right corner of the cost matrix
+		for (int i = 0; i < num_of_tracks; i++) {
+			cost[row_index][col_index] = cost_of_non_assignment;
+			col_index++;
+		}
+		row_index++;
+		col_index = 0;
+	}
+
+	// padding for cost matrix to account for unassigned detections, used to fill the bottom
+	// left corner of the cost matrix
+	std::vector<double> append_row;
+	for (int i = num_of_tracks; i < total_size; i++) {
+		for (int j = num_of_centroids; i++) {
+			cost[i][j] = cost_of_non_assignment;
+		}
+	}
+
+	// the bottom right corner of the cost matrix, corresponding to dummy detections being 
+	// matched to dummy tracks, is left with 0 cost to ensure that the excess dummies are
+	// always matched to each other
+
+	// apply Hungarian algorithm to get assignment of detections to tracked targets
+	assignments_all = apply_hungarian_algo(cost);
+
+	int track_index = 0;
+
+	// get assignments, unassigned tracks, and unassigned detections
+	for (auto & assignment : assignments_all) {
+		if (track_index < num_of_tracks) {
+			// track index is less than no. of tracks, thus the current assignment is a valid track
+			if (assignment < num_of_centroids) {
+				// if in the top left of the cost matrix (no. of tracks x no. of detections), these 
+				// assignments are successfully matched detections and tracks. For this, the assigned 
+				// detection index must be less than number of centroids. if so, we will store the 
+				// track indexes and detection indexes in the assignments vector
+				std::vector<int> indexes(2, 0);
+				indexes[0] = track_index;
+				indexes[1] = assignment;
+				assignments_.push_back(indexes);
+			} else {
+				// at the top right of the cost matrix. if detection index is equal to or more than 
+				// the no. of detections, then the track is assigned to a dummy detection. As such, 
+				// it is an unassigned track
+				unassigned_tracks_.push_back(assignment);
+			}
+		} else {
+			// at the lower half of cost matrix. Thus, if detection index is less than no. of 
+			// detections, then the detection is assigned to a dummy track. As such it is an 
+			// unassigned detections
+			if (assignment < num_of_centroids) {
+				unassigned_detections_.push_back(assignment);
+			}
+			// if not, then the last case is when excess dummies are matching with each other. 
+			// we will ignore these cases
+		}
+		track_index++;
+	}
+}
+
+/**
+ * This function calculates the euclidean distance between two points
+ */
+float Camera::euclideanDist(cv::Point2f & p, cv::Point2f & q) {
+	cv::Point2f diff = p - q;
+	return sqrt(diff.x*diff.x + diff.y*diff.y);
+}
+
+/**
+ * This function applies hungarian algorithm to obtain the optimal assignment for 
+ * our cost matrix of tracks and detections
+ */
+std::vector<int> Camera::apply_hungarian_algo(std::vector<std::vector<double>> & cost_matrix) {
+	// declare function variables
+	HungarianAlgorithm hungAlgo;
+	vector<int> assignment;
+
+	double cost = hungAlgo.Solve(cost_matrix, assignment);
+
+	return assignment;
+}
+
+/**
+ * This function calculates the average brightness value of the frame
+ */
+int Camera::average_brightness()
+{
+	// declare and initialize required variables
+	cv::Mat hist;
+	int channels[] = {0};
+	int bins[] = {16};
+	float hrange = {0, 256};
+	int weighted_sum = 0;
+
+	// get grayscale frame and calculate histogram
+	cv::cvtColor(frame_, gray_, cv::COLOR_BGR2GRAY);
+	cv::calcHist(gray_, 1, channels, mask_, hist, 1, bins, hrange);
+
+	// iterate through each bin
+	for (int i=0; i < hist.cols; i++) {
+		weighted_sum += hist.at<int>(0, i);
+	}
+	
+	return int((weighted_sum/cv::sum(hist)) * (256/16));
 }
