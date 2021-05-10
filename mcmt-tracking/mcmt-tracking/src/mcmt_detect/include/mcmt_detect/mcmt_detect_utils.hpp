@@ -30,10 +30,10 @@ namespace mcmt
 class Track {
 	public:
 		Track(int track_id, float size, cv::Point2f centroid, McmtParams & parameter);
-		McmtParams *param_ptr_;
+		McmtParams* param_ptr_;
 		
-		// variable to store predicted locations from kf
-		cv::Point2f predicted_;
+		// variable to store predicted and actual locations from kf
+		cv::Point2f centroid_, predicted_;
 
 		// bool variable to flag if dcf has been initialized
 		bool dcf_flag_, is_dcf_init_;
@@ -62,7 +62,7 @@ class Track {
 		cv::Rect2d box_;
 
 		// declare class functions
-		void createConstantVelocityKF();
+		void createConstantVelocityKF(cv::Point2f & cen);
 		void createDCF();
 };
 
@@ -88,10 +88,11 @@ class Camera {
 		std::vector<cv::Point2f> centroids_;
 
 		// declare tracking variables
-		std::vector<Track> tracks_;
+		std::vector<Track> tracks_, gone_tracks_, good_tracks_;
 		std::vector<int> origin_, unassigned_tracks_, unassigned_detections_;
 		// we store the matched track index and detection index in the assigments vector
 		std::vector<std::vector<int>> assignments_;
+		std::vector<int> tracks_to_be_removed_;
 
 		// declare variable for re-identification
 		std::vector<int> dead_tracks_;
@@ -114,7 +115,7 @@ class Camera {
 		void update_unassigned_tracks();
 		void delete_lost_tracks();
 		void create_new_tracks();
-		void filter_tracks();
+		std::vector<Track> filter_tracks();
 };
 }
 

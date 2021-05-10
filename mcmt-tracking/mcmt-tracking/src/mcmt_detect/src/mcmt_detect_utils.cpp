@@ -37,8 +37,11 @@ Track::Track(int track_id, float size, cv::Point2f centroid, McmtParams & parame
 	dcf_flag_ = true;
 	outOfSync_ = false;
 
+	// initialize centroid location
+	centroid_ = centroid;
+	
 	// initialize kf and DCF
-	createConstantVelocityKF();
+	createConstantVelocityKF(centroid_);
 	createDCF();
 }
 
@@ -47,7 +50,7 @@ Track::Track(int track_id, float size, cv::Point2f centroid, McmtParams & parame
  * KF's parameters for constant velocity model, and inputs detected target's
  * location into the KF tracker.
  */
-void Track::createConstantVelocityKF(){
+void Track::createConstantVelocityKF(cv::Point2f & cen){
 	kf_(4, 2, 0);
 	
 	float transitionMatrix[16] = { 1, 0, 1, 0,
@@ -74,8 +77,8 @@ void Track::createConstantVelocityKF(){
 	state_(stateSize, 1, CV_32F);
 
 	// input detected centroid location
-	state_.at<float>(0) = centroid.x;
-	state_.at<float>(1) = centroid.y;
+	state_.at<float>(0) = cen.x;
+	state_.at<float>(1) = cen.y;
 	state_.at<float>(2) = 0;
 	state_.at<float>(3) = 0;
 	kf_.statePost = state_;
@@ -114,8 +117,8 @@ void Track::updateKF(cv::Point2f & measurement)
 
 	// update
 	cv::Mat prediction = kf_.correct(measure);
-	predicted_.x = prediction.at<float>(0);
-	predicted_.y = prediction.at<float>(1));
+	centroid_.x = prediction.at<float>(0);
+	centroid_.y = prediction.at<float>(1));
 }
 
 /**
@@ -124,7 +127,7 @@ void Track::updateKF(cv::Point2f & measurement)
 void Track::predictDCF()
 {
 	cv::Rect2d box;
-	if (age_ >= param_ptr_.VIDEO_FPS_ && is_dcf_init_ == true) {
+	if (age_ >= param_ptr_->VIDEO_FPS_ && is_dcf_init_ == true) {
 		bool ok = it.tracker_->update(frame_, box);
 		if (ok) {
 			box_ = box;
@@ -148,15 +151,17 @@ void Track::checkDCF(cv::Point2f & measurement, cv::Mat & frame)
 		// check if the measured track is not too far away from DCF predicted position. if it is too far away,
 		// we will mark it as out of sync with the DCF tracker
 		if (age_ >= int(max((param_ptr_->SEC_FILTER_DELAY_ * param_ptr_->VIDEO_FPS_), 30))) {
-			if ( ( measurement.x < (box_.x - (1 * box_.width)) ) || ( measurement.x > (box_.x + (2 * box_.width)) )
-				&& ( ( measurement.y < (box_.y - (1 * box_.height)) ) || ( measurement.y > (box_.y - (2 * box_.height)) ) ) ) {
+			if (((measurement.x < (box_.x - (1 * box_.width))) || 
+					 (measurement.x > (box_.x + (2 * box_.width)))) &&
+					((measurement.y < (box_.y - (1 * box_.height))) ||
+					 (measurement.y > (box_.y - (2 * box_.height))))) {
 				outOfSync_ = true;
 			} else {
 				outOfSync_ = false;
 			}
+		}
 	}
 }
-
 
 /** 
  * This class is for keeping track of the respective camera's information. 
@@ -213,6 +218,7 @@ Camera::Camera(McmtParams & params, std::string & cam_index, int frame_w, int fr
 	element_ = cv::getStructuringElement(0, cv::Size(5, 5));
 
 	// initialize openCV namedWindows
+	cv::namedWindow("Frame " + cam_index_);
 	cv::namedWindow("Masked " + cam_index_);
 	cv::namedWindow("Remove Ground " + cam_index_);
 }
@@ -241,6 +247,7 @@ void Camera::detect_and_track()
 	assignments_.clear();
 	unassigned_tracks_.clear();
 	unassigned_detections_.clear();
+	tracks_to_be_removed_.clear();
 
 	// get cost matrix and match detections and track targets
 	detection_to_track_assignment();
@@ -259,9 +266,10 @@ void Camera::detect_and_track()
 	cv::cvtColor(masked_, masked_, cv::COLOR_GRAY2BGR);
 
 	// filter the tracks
-	filter_tracks();
+	good_tracks_ = filter_tracks();
 
-	// show masked frame
+	// show masked and frame
+	cv::imshow(("Frame " + cam_index_), frame_);
 	cv::imshow(("Masked " + cam_index_), masked_);
 
 }
@@ -415,7 +423,7 @@ void Camera::detection_to_track_assignment()
 				// at the top right of the cost matrix. if detection index is equal to or more than 
 				// the no. of detections, then the track is assigned to a dummy detection. As such, 
 				// it is an unassigned track
-				unassigned_tracks_.push_back(assignment);
+				unassigned_tracks_.push_back(track_index);
 			}
 		} else {
 			// at the lower half of cost matrix. Thus, if detection index is less than no. of 
@@ -460,6 +468,104 @@ void Camera::update_assigned_tracks()
 }
 
 /**
+ * This function updates the unassigned tracks obtained from our detection_to_track_assignments.
+ * we process the tracks do not have an existing matched detection in the current frame by 
+ * increasing their consecutive invisible count. It also gets any track that has been invisible
+ * for too long, and stores them in the vector tracks_to_be_removed_
+ */
+void Camera::update_unassigned_tracks()
+{
+	int invisible_for_too_long = int(params_.CONSECUTIVE_THRESH_ * params_.VIDEO_FPS_);
+	int age_threshold = int(params_.AGE_THRESH_ * params_.VIDEO_FPS_);
+
+	for (auto & track_index : unassigned_tracks_) {
+		Track track = tracks_[track_index];
+		track.age_++;
+		track.consecutiveInvisibleCount_++;
+		
+		int visibility = int(track.totalVisibleCount_ / track.age_);
+
+		// if invisible for too long, append track to be removed
+		if ((track.age_ < age_threshold && visibility < params_.VISIBILITY_RATIO_) ||
+				(track.consecutiveInvisibleCount_ >= invisible_for_too_long) ||
+				(track.outOfSync == true)) {
+			tracks_to_be_removed_.push_back(track_index);
+		}
+	}
+}
+
+/**
+ * This function removes the tracks to be removed, in the vector tracks_to_be_removed_
+ */
+void Camera::delete_lost_tracks()
+{
+	for (auto & track_index : tracks_to_be_removed_) {
+		dead_tracks_.push_back(tracks_[track_index]);
+		tracks_.erase(tracks_.begin() + track_index);
+	}
+}
+
+/**
+ * This function creates new tracks for detections that are not assigned to any existing
+ * track. We will initialize a new Track with the location of the detection
+ */
+void Camera::create_new_tracks()
+{
+	for (auto & unassigned_detection : unassigned_detections_) {
+		cv::Point2f cen = centroids_[unassigned_detection];
+		float size = sizes_[unassigned_detection];
+		// initialize new track
+		Track new_track(next_id_, size, cen, params_);
+		tracks_.push_back(new_track);
+		next_id_++;
+	}
+}
+
+/**
+ * This function filters out good tracks to be considered for re-identification. it also
+ * filters out noise and only shows tracks that are considered "good" in our output processed
+ * frames. it draws bounding boxes into these tracks into our camera frame to continuously 
+ * identify and track the detected good tracks
+ */
+void Camera::filter_tracks()
+{
+	masked
+	std:vector<Track> good_tracks(0, 0);
+	int min_track_age = int(max((params_.AGE_THRESH_ * params_.VIDEO_FPS_), 30));
+	int min_visible_count = int(max((params_.VISIBILITY_THRESH_ * params_.VIDEO_FPS_), 30));
+
+	if (tracks_.size() != 0) {
+		for (auto & track : tracks_) {
+			if (track.age_ > min_track_age && track.totalVisibleCount_ > min_visible_count) {
+				// requirement for track to be considered in re-identification
+				// note that min no. of frames being too small may lead to loss of continuous tracking
+				if (track.consecutiveInvisibleCount_ <= 5) {
+					track.is_goodtrack_ = true;
+					good_tracks.push_back(track);
+				}
+				
+				cv::Point2i rect_top_left((track.centroid_.x - (track.size_ / 2)), 
+																	(track.centroid_.y - (track.size_ / 2)));
+				
+				cv::Point2i rect_bottom_right((track.centroid_.x + (track.size_ / 2)), 
+																			(track.centroid_.y + (track.size_ / 2)));
+
+				if (track.consecutiveInvisibleCount_ == 0) {
+					// green color bounding box if track is detected in the current frame
+					cv::rectangle(frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);
+					cv::rectangle(masked_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);
+				} else {
+					// red color bounding box if track is not detected in the current frame
+					cv::rectangle(frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 0, 255), 1);
+					cv::rectangle(masked_, rect_top_left, rect_bottom_right, cv::Scalar(0, 0, 255), 1);
+				}
+			}
+		}
+	}
+	return good_tracks;
+}
+
+/**
  * This function calculates the euclidean distance between two points
  */
 float Camera::euclideanDist(cv::Point2f & p, cv::Point2f & q) {
@@ -477,7 +583,6 @@ std::vector<int> Camera::apply_hungarian_algo(std::vector<std::vector<double>> &
 	vector<int> assignment;
 
 	double cost = hungAlgo.Solve(cost_matrix, assignment);
-
 	return assignment;
 }
 
