@@ -50,7 +50,8 @@ Track::Track(int track_id, float size, cv::Point2f centroid, McmtParams & parame
  * KF's parameters for constant velocity model, and inputs detected target's
  * location into the KF tracker.
  */
-void Track::createConstantVelocityKF(cv::Point2f & cen){
+void Track::createConstantVelocityKF(cv::Point2f & cen)
+{
 	kf_(4, 2, 0);
 	
 	float transitionMatrix[16] = { 1, 0, 1, 0,
@@ -173,13 +174,6 @@ Camera::Camera(McmtParams & params, std::string & cam_index, int frame_w, int fr
 	params_ = params;
 	cam_index_ = cam_index;
 
-	// initialize camera video index port
-	if (cam_index_ == "0") {
-		index_ = params_.VIDEO_INPUT_0_;
-	} else {
-		index_ = params_.VIDEO_INPUT_1_;
-	}
-
 	// initialize camera video parameters
 	frame_w_ = frame_w;
 	frame_h_ = frame_h;
@@ -189,10 +183,10 @@ Camera::Camera(McmtParams & params, std::string & cam_index, int frame_w, int fr
 
 	// if video frame size is too big, downsize
 	downsample_ = false;
-	if ((frame_w_ * frame_h_) > (1920 * 1080)) {
+	if ((frame_w_ * frame_h_) > (params_.FRAME_WIDTH_ * params_.FRAME_HEIGHT_)) {
 		downsample_ = true;
-		frame_w_ = 1920;
-		frame_h_ = int(1920 / aspect_ratio_);
+		frame_w_ = params_.FRAME_WIDTH_;
+		frame_h_ = int(params_.FRAME_WIDTH_ / aspect_ratio_);
 		scale_factor_ = (sqrt(pow(frame_w_, 2) + pow(frame_h_, 2))) / (sqrt(pow(848, 2) + pow(480, 2)));
 	}
 

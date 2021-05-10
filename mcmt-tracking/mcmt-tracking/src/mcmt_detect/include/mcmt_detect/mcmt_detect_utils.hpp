@@ -79,7 +79,7 @@ class Camera {
 
 	private:
 		// declare camera variables
-		int index_, frame_w_, frame_h_, fps_, next_id_; 
+		frame_w_, frame_h_, fps_, next_id_; 
 		float scale_factor_, aspect_ratio_;
 		bool downsample_;
 

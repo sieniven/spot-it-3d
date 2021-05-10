@@ -13,17 +13,28 @@
 
 using mcmt::ProcessorNode;
 
-McmtProcessorNode::McmtProcessorNode(std::string cam_index, bool is_realtime, int frame_w, int frame_h)
+McmtProcessorNode::McmtProcessorNode(std::string cam_index)
 : Node("ProcessorNode" + cam_index)
 {
 	cam_index_ = cam_index;
 	RCLCPP_INFO(this->get_logger(), "Initializing MCMT Processor Node" + cam_index_);
 	node_handle_ = std::shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});
 	declare_parameters();
-	get_parameters(is_realtime);
+	get_parameters();
+
+	if (is_realtime_ == true) {
+		cap_ = cv::VideoCapture(video_input_);
+	} else {
+		cap_ = cv::VideoCapture(filename_);
+	}
+
+	// get camera frame width and height. Processor node has to be initialized before UVCDriver node
+	frame_w_ = int(cap_.get(cv::CAP_PROP_FRAME_WIDTH));
+	frame_h_ = int(cap_.get(cv::CAP_PROP_FRAME_HEIGHT));
+	cap_.release();
 	
 	// initialize Camera class
-	camera_(params_, cam_index, frame_w, frame_h);
+	camera_(params_, cam_index, frame_w_, frame_h_);
 
 	// initialize raw image subscriber
 	detection_callback();
@@ -60,7 +71,7 @@ void McmtProcessorNode::detection_callback()
 			// publish camera information
 			publish_info();
 		}
-	)
+	);
 }
 
 /**
@@ -69,16 +80,11 @@ void McmtProcessorNode::detection_callback()
 void McmtProcessorNode::declare_parameters()
 {
 	// declare ROS2 video parameters
-	this->declare_parameter("VIDEO_INPUT_0");
-	this->declare_parameter("VIDEO_INPUT_1");
+	this->declare_parameter("IS_REALTIME");
+	this->declare_parameter("VIDEO_INPUT");
 	this->declare_parameter("FRAME_WIDTH");
 	this->declare_parameter("FRAME_HEIGHT");
 	this->declare_parameter("VIDEO_FPS");
-	this->declare_parameter("OUTPUT");
-	this->declare_parameter("OUTPUT_FILE");
-	this->declare_parameter("TRACK_CSV");
-	this->declare_parameter("FILENAME_0");
-	this->declare_parameter("FILENAME_1");
 	this->declare_parameter("MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES");
 	
 	// declare ROS2 filter parameters
@@ -104,19 +110,14 @@ void McmtProcessorNode::declare_parameters()
  * This function gets the mcmt parameters from the ROS2 parameters, and
  * stores them as in our McmtParams class.
  */
-void McmtProcessorNode::get_parameters(bool isrealtime)
+void McmtProcessorNode::get_parameters()
 {
 	// get video parameters
-	VIDEO_INPUT_0_param = this->get_parameter("VIDEO_INPUT_0");
-	VIDEO_INPUT_1_param = this->get_parameter("VIDEO_INPUT_1");
+	IS_REALTIME_param = this->get_parameter("IS_REALTIME");
+	VIDEO_INPUT_param = this->get_parameter("VIDEO_INPUT");
 	FRAME_WIDTH_param = this->get_parameter("FRAME_WIDTH");
 	FRAME_HEIGHT_param = this->get_parameter("FRAME_HEIGHT");
 	VIDEO_FPS_param = this->get_parameter("VIDEO_FPS");
-	OUTPUT_param = this->get_parameter("OUTPUT");
-	OUTPUT_FILE_param = this->get_parameter("OUTPUT_FILE");
-	TRACK_CSV_param = this->get_parameter("TRACK_CSV");
-	FILENAME_0_param = this->get_parameter("FILENAME_0");
-	FILENAME_1_param = this->get_parameter("FILENAME_1");
 	MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_param = this->get_parameter("MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES");
 	
 	// get filter parameters
@@ -138,17 +139,11 @@ void McmtProcessorNode::get_parameters(bool isrealtime)
 	BACKGROUND_CONTOUR_CIRCULARITY_param = this->get_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
 
 	// initialize McmtParams class to store the parameter values
-	params_(isrealtime, 
-					VIDEO_INPUT_0_param.as_int(),
+	params_(VIDEO_INPUT_0_param.as_int(),
 					VIDEO_INPUT_1_param.as_int(),
-					FILENAME_0_param.as_string(),
-					FILENAME_1_param.as_string(),
 					FRAME_WIDTH_param.as_int(),
 					FRAME_HEIGHT_param.as_int(), 
 					VIDEO_FPS_param.as_int(),
-					OUTPUT_param.as_string(),
-					OUTPUT_FILE_param.as_string(),
-					TRACK_CSV_param.as_string(),
 					MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_param.as_int(),
 					VISIBILITY_RATIO_param.as_double(),
 					VISIBILITY_THRESH_param.as_double(),
@@ -164,6 +159,14 @@ void McmtProcessorNode::get_parameters(bool isrealtime)
 					DILATION_ITER_param.as_int(),
 					REMOVE_GROUND_ITER_param.as_double(),
 					BACKGROUND_CONTOUR_CIRCULARITY_param.as_double());
+
+	// get video parameters
+	is_realtime_ = IS_REALTIME_param.as_bool();
+	if (is_realtime_ == true) {
+		video_input_ = VIDEO_INPUT_param.as_int();
+	} else {
+		filename_ = VIDEO_INPUT_param.as_string();
+	}
 }
 
 std::string McmtProcessorNode::mat_type2encoding(int mat_type)

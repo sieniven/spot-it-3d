@@ -13,12 +13,20 @@
 
 using mcmt::UVCDriver;
 
-UVCDriver::UVCDriver(const int & video_device_id, const std::string cam_index)
+UVCDriver::UVCDriver(const std::string cam_index)
 : Node("UVCDriverNode" + cam_index)
 {
 	RCLCPP_INFO(this->get_logger(), "Initializing UVCDriver" + cam_index);
 	node_handle_ = std::shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});
-	cap_ = cv::VideoCapture(video_device_id);
+	
+	declare_parameters();
+	get_parameters();
+
+	if (is_realtime_ == true) {
+		cap_ = cv::VideoCapture(video_input_);
+	} else {
+		cap_ = cv::VideoCapture(filename_);
+	}
 	
 	// create raw image publisher with topic name "mcmt/raw_image_{cam_index}"
 	topic_name_ = "mcmt/raw_image_" + cam_index);
@@ -30,7 +38,7 @@ UVCDriver::UVCDriver(const int & video_device_id, const std::string cam_index)
 	else {
 		std::cout << "Camera " + cam_index + " opened successful!" << std::endl;
 	}
-	cap_.set(cv::CAP_PROP_FPS, 25);	
+	cap_.set(cv::CAP_PROP_FPS, 25);
 }
 
 // function to start video capture
@@ -77,6 +85,27 @@ void UVCDriver::publish_image()
 	sensor_msgs::msg::Image::SharedPtr msg = cv_bridge::CvImage(
 		header_, encoding_, frame_).toImageMsg();
 	image_pub_->publish(*msg);
+}
+
+void UVCDriver::declare_parameters()
+{
+	// declare ROS2 video parameters
+	this->declare_parameter("IS_REALTIME");
+	this->declare_parameter("VIDEO_INPUT");
+}
+
+void UVCDriver::get_parameters()
+{
+	// get video parameters
+	IS_REALTIME_param = this->get_parameter("IS_REALTIME");
+	VIDEO_INPUT_param = this->get_parameter("VIDEO_INPUT");
+
+	is_realtime_ = IS_REALTIME_param.as_bool();
+	if (is_realtime_ == true) {
+		video_input_ = VIDEO_INPUT_param.as_int();
+	} else {
+		filename_ = VIDEO_INPUT_param.as_string();
+	}
 }
 
 std::string UVCDriver::mat_type2encoding(int mat_type)

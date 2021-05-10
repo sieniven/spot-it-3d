@@ -14,17 +14,9 @@ namespace mcmt
 class McmtParams {
 	public:
 		McmtParams(
-			bool is_realtime,
-			const int VIDEO_INPUT_0,
-			const int VIDEO_INPUT_1,
-			std::string FILENAME_0,
-			std::string FILENAME_1,
 			const int FRAME_WIDTH,
 			const int FRAME_HEIGHT,
 			const int VIDEO_FPS,
-			std::string OUTPUT,
-			std::string OUTPUT_FILE,
-			std::string TRACK_CSV,
 			const int MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES,
 			const float VISIBILITY_RATIO,
 			const float VISIBILITY_THRESH,
@@ -42,9 +34,7 @@ class McmtParams {
 			const float BACKGROUND_CONTOUR_CIRCULARITY);
 		
 		// declare video parameters
-		bool is_realtime_;
-		int VIDEO_INPUT_0_, VIDEO_INPUT_1_, FRAME_WIDTH_, FRAME_HEIGHT_, VIDEO_FPS_, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_;
-		std::string FILENAME_0_, FILENAME_1_, OUTPUT_, OUTPUT_FILE_, TRACK_CSV_;
+		int FRAME_WIDTH_, FRAME_HEIGHT_, VIDEO_FPS_, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_;
 
 		// declare filter parameters
 		float VISIBILITY_RATIO_, VISIBILITY_THRESH_, CONSECUTIVE_THRESH_, AGE_THRESH_, SEC_FILTER_DELAY_;

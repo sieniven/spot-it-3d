@@ -9,17 +9,9 @@
 using mcmt::McmtParams;
 
 McmtParams::McmtParams(
-	bool is_realtime,
-	const int VIDEO_INPUT_0,
-	const int VIDEO_INPUT_1,
-	std::string FILENAME_0,
-	std::string FILENAME_1,
 	const int FRAME_WIDTH,
 	const int FRAME_HEIGHT,
 	const int VIDEO_FPS,
-	std::string OUTPUT,
-	std::string OUTPUT_FILE,
-	std::string TRACK_CSV,
 	const int MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES,
 	const float VISIBILITY_RATIO,
 	const float VISIBILITY_THRESH,
@@ -37,17 +29,9 @@ McmtParams::McmtParams(
 	const float BACKGROUND_CONTOUR_CIRCULARITY)
 {
 	// initialize video parameters
-	is_realtime_ = is_realtime;
-	VIDEO_INPUT_0_ = VIDEO_INPUT_0;
-	VIDEO_INPUT_1_ = VIDEO_INPUT_1;
-	FILENAME_0_ = FILENAME_0;
-	FILENAME_1_ = FILENAME_1;
 	FRAME_WIDTH_ = FRAME_WIDTH;
 	FRAME_HEIGHT_ = FRAME_HEIGHT;
 	VIDEO_FPS_ = VIDEO_FPS;
-	OUTPUT_ = OUTPUT;
-	OUTPUT_FILE_ = OUTPUT_FILE;
-	TRACK_CSV_ = TRACK_CSV;
 
 	// initialize filter parameters
 	VISIBILITY_RATIO_ = VISIBILITY_RATIO;
