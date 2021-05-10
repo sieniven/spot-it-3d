@@ -29,18 +29,14 @@ namespace mcmt
 {
 class Track {
 	public:
-		Track(int track_id, float size, cv::Point2f centroid);
+		Track(int track_id, float size, cv::Point2f centroid, McmtParams & parameter);
+		McmtParams *param_ptr_;
 		
 		// variable to store predicted locations from kf
 		cv::Point2f predicted_;
 
 		// bool variable to flag if dcf has been initialized
-		bool is_dcf_init_;
-
-	private:
-		// declare kf variables
-		cv::KalmanFilter kf_;
-		cv::Mat state_;
+		bool dcf_flag_, is_dcf_init_;
 
 		// size of detected blob
 		float size_;
@@ -49,6 +45,17 @@ class Track {
 		int id_, age_, totalVisibleCount_, consecutiveInvisibleCount_;
 		bool is_goodtrack_;
 
+		// declare class functions
+		void predictKF();
+		void updateKF(cv::Point2f & measurement);
+		void predictDCF();
+		void checkDCF(cv::Point2f & measurement, cv::Mat & frame);
+
+	private:
+		// declare kf variables
+		cv::KalmanFilter kf_;
+		cv::Mat state_;
+
 		// declare dcf variables
 		cv::Ptr<cv::Tracker> tracker_;
 		bool outOfSync_;
@@ -56,6 +63,7 @@ class Track {
 
 		// declare class functions
 		void createConstantVelocityKF();
+		void createDCF();
 };
 
 class Camera {

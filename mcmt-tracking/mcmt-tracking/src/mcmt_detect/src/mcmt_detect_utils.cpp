@@ -21,8 +21,10 @@ using namespace mcmt;
  * This class is for tracking the detected blobs, and using state estimators 
  * (KF and DCF) to predict the location of the track in the next frame.
 */
-Track::Track(int track_id, float size, cv::Point2f centroid)
+Track::Track(int track_id, float size, cv::Point2f centroid, McmtParams & parameter)
 {
+	param_ptr_ = &parameter;
+	
 	// set the id and size of detected track
 	id_ = track_id;
 	size_ = size;
@@ -31,16 +33,13 @@ Track::Track(int track_id, float size, cv::Point2f centroid)
 	// initialize variables to store info on track 
 	totalVisibleCount_ = 1;
 	consecutiveInvisibleCount_ = 0;
-	is_goodtrack_ = false
-	outOfSync_ = false
+	is_goodtrack_ = false;
+	dcf_flag_ = true;
+	outOfSync_ = false;
 
-	// initialize kalman filter
+	// initialize kf and DCF
 	createConstantVelocityKF();
-	
-	// initialize DCF tracker
-	tracker_ = cv::TrackerCSRT::create();
-	is_dcf_init_ = false;
-	box_(0, 0, 0, 0);
+	createDCF();
 }
 
 /** 
@@ -81,6 +80,83 @@ void Track::createConstantVelocityKF(){
 	state_.at<float>(3) = 0;
 	kf_.statePost = state_;
 }
+
+/**
+ * This function initializes openCV's Discriminative Correlation Filter class. We set
+ * box coordiantes at origin during the object class initialization
+ */
+void Track::createDCF()
+{
+	tracker_ = cv::TrackerCSRT::create();
+	dcf_flag_ = true;
+	is_dcf_init_ = false;
+}
+
+/**
+ * This function uses the kalman filter of the track to predict the next known location.
+ */
+void Track::predictKF()
+{
+	cv::Mat prediction = kf_.predict();
+	predicted_.x = prediction.at<float>(0);
+	predicted_.y = prediction.at<float>(1));
+}
+
+/**
+ * This function uses the kalman filter of the track to update the filter with the measured
+ * location of the detected blob in the current frame.
+ */
+void Track::updateKF(cv::Point2f & measurement)
+{
+	cv::Mat<float> measure = cv::Mat::zeros(2, 1, CV_32F);
+	measure.at<float>(0) = measurement.x;
+	measure.at<float>(1) = measurement.y;
+
+	// update
+	cv::Mat prediction = kf_.correct(measure);
+	predicted_.x = prediction.at<float>(0);
+	predicted_.y = prediction.at<float>(1));
+}
+
+/**
+ * This function uses the DCF of the track to predict the next known location.
+ */
+void Track::predictDCF()
+{
+	cv::Rect2d box;
+	if (age_ >= param_ptr_.VIDEO_FPS_ && is_dcf_init_ == true) {
+		bool ok = it.tracker_->update(frame_, box);
+		if (ok) {
+			box_ = box;
+		}
+	}
+}
+
+/**
+ * This function intializes DCF and checks if the DCF measurements are far off from the
+ * KF measurements. If the measurements are far off, we will take flag them as outOfSync,
+ * and dump the track.
+ */
+void Track::checkDCF(cv::Point2f & measurement, cv::Mat & frame)
+{
+	// check if track age is sufficiently large. if it equals to the set prarameter, initialize the DCF tracker
+	if (dcf_flag_ = true) {
+		if (age_ == int(max((param_ptr_->SEC_FILTER_DELAY_ * param_ptr_->VIDEO_FPS_), 30) - 1)) {
+			box_((measurement.x - (size_ / 2)), (measurement.y - (size_ / 2)), size_, size_);
+			tracker_->init(frame, box_);
+		}
+		// check if the measured track is not too far away from DCF predicted position. if it is too far away,
+		// we will mark it as out of sync with the DCF tracker
+		if (age_ >= int(max((param_ptr_->SEC_FILTER_DELAY_ * param_ptr_->VIDEO_FPS_), 30))) {
+			if ( ( measurement.x < (box_.x - (1 * box_.width)) ) || ( measurement.x > (box_.x + (2 * box_.width)) )
+				&& ( ( measurement.y < (box_.y - (1 * box_.height)) ) || ( measurement.y > (box_.y - (2 * box_.height)) ) ) ) {
+				outOfSync_ = true;
+			} else {
+				outOfSync_ = false;
+			}
+	}
+}
+
 
 /** 
  * This class is for keeping track of the respective camera's information. 
@@ -212,7 +288,7 @@ void Camera::detect_objects()
 	// apply morphological transformation
 	cv::dilate(masked_, masked_, element_, iterations=params_.DILATION_ITER_);
 
-	// invert frame such taht black pixels are foreground
+	// invert frame such that black pixels are foreground
 	cv::bitwise_not(masked_, masked_);
 
 	// apply blob detection
@@ -259,16 +335,9 @@ void Camera::remove_ground()
 void Camera::predict_new_locations_of_tracks()
 {
 	for (auto & it : tracks_) {
-		cv::Mat prediction = it.kf_.predict();
-		it.predicted_(prediction.at<float>(0), prediction.at<float>(1));
-
-		cv::Rect2d box;
-		if (it.age_ >= params_.VIDEO_FPS_ && it.is_dcf_init_ == true) {
-			bool ok = it.tracker_->update(frame_, box);
-			if (ok) {
-				it.box_ = box;
-			}
-		}
+		// predict next location using KF and DCF
+		it.predictKF();
+		it.predictDCF():
 	}
 }
 
@@ -359,6 +428,34 @@ void Camera::detection_to_track_assignment()
 			// we will ignore these cases
 		}
 		track_index++;
+	}
+}
+
+/**
+ * This function processes the valid assignments of tracks and detections using the detection
+ * and track indices, and updates the tracks with the matched detections
+ */
+void Camera::update_assigned_tracks()
+{
+	for (auto & assignment : assignments_) {
+		int track_index = assignment[0];
+		int detection_index = assignment[1];
+
+		cv::Point2f cen = centroids_[detection_index];
+		float size = sizes_[detection_index];
+		Track track = tracks_[track_index];
+
+		// update kalman filter
+		track.updateKF(cen);
+
+		// update DCF
+		track.checkDCF(cen, frame_);
+		
+		// update track info
+		track.size_ = size;
+		track.age_++;
+		track.totalVisibleCount_++;
+		track.consecutiveInvisibleCount_ = 0;
 	}
 }
 
