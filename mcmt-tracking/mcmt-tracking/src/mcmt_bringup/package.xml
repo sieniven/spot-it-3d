@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>mcmt</name>
+  <name>mcmt_bringup</name>
   <version>1.0.0</version>
   <description>
   Launch package for multi-camera multi-target tracking
@@ -13,7 +13,6 @@
   <url type="repository">https://github.com/sieniven/spot-it-3d/</url>
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <exec_depend>mcmt_bringup</exec_depend>
   <exec_depend>mcmt_detect</exec_depend>
   <exec_depend>mcmt_track</exec_depend>
 

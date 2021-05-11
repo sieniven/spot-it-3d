@@ -29,7 +29,7 @@ UVCDriver::UVCDriver(const std::string cam_index)
 	}
 	
 	// create raw image publisher with topic name "mcmt/raw_image_{cam_index}"
-	topic_name_ = "mcmt/raw_image_" + cam_index);
+	topic_name_ = "mcmt/raw_image_" + cam_index;
 	image_pub_ = this->create_publisher<sensor_msgs::msg::Image> (topic_name_, 10);
 
 	if (!cap_.isOpened()) {

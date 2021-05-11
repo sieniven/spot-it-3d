@@ -208,6 +208,10 @@ Camera::Camera(McmtParams & params, std::string & cam_index, int frame_w, int fr
 	origin_.push_back(0);
 	next_id_ = 1000;
 
+	// initialize track lists
+	tracks_(0);
+	dead_tracks_(0);
+
 	// initialize kernel used for morphological transformations
 	element_ = cv::getStructuringElement(0, cv::Size(5, 5));
 
@@ -265,7 +269,6 @@ void Camera::detect_and_track()
 	// show masked and frame
 	cv::imshow(("Frame " + cam_index_), frame_);
 	cv::imshow(("Masked " + cam_index_), masked_);
-
 }
 
 /** 
@@ -494,7 +497,7 @@ void Camera::update_unassigned_tracks()
 void Camera::delete_lost_tracks()
 {
 	for (auto & track_index : tracks_to_be_removed_) {
-		dead_tracks_.push_back(tracks_[track_index]);
+		dead_tracks_.push_back(track_index);
 		tracks_.erase(tracks_.begin() + track_index);
 	}
 }

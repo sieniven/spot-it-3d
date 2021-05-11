@@ -55,3 +55,11 @@ Thumbs.db
 
 # ignore csv data files
 *.csv
+
+# ignore ROS2 build, install and log directories
+*.idea
+*.pyc
+log/
+build/
+install/
+.vscode/

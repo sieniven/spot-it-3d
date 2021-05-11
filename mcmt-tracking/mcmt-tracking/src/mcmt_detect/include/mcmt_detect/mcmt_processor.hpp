@@ -16,6 +16,7 @@
 #include <cv_bridge/cv_bridge.h>
 #include <mcmt_detect/mcmt_params.hpp>
 #include <mcmt_detect/mcmt_detect_utils.hpp>
+#include <mcmt_msg/msg/detection_info.hpp>
 
 #include <string>
 #include <memory>
@@ -50,6 +51,10 @@ class McmtProcessorNode : public rclcpp::Node {
 		int video_input_, frame_w_, frame_h_;
 		std::string filename_;
 		bool is_realtime_;
+
+		// declare ROS2 publishers
+        rclcpp::Publisher<mcmt_msg::msg::DetectionInfo>::SharedPtr detection_pub_;
+
     cv::VideoCapture cap_;
 
 	private:

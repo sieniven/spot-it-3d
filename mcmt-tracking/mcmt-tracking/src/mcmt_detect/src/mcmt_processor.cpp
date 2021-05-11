@@ -36,6 +36,10 @@ McmtProcessorNode::McmtProcessorNode(std::string cam_index)
 	// initialize Camera class
 	camera_(params_, cam_index, frame_w_, frame_h_);
 
+	// create detection info publisher with topic name "mcmt/detection_info_{cam_index}"
+	topic_name_ = "mcmt/detection_info_" + cam_index);
+	detection_pub_ = this->create_publisher<mcmt_msg::msg::DetectionInfo> (topic_name_, 10);
+
 	// initialize raw image subscriber
 	detection_callback();
 }
@@ -208,5 +212,50 @@ int McmtProcessorNode::encoding2mat_type(const std::string & encoding)
 
 void McmtProcessorNode::publish_info()
 {
-// tbc
+	rclcpp::Time timestamp = this->now();
+	std_msgs::msg::Header header;
+	std::string encoding;
+
+	header.stamp = timestamp;
+	header.frame_id = camera_.frame_id_;
+
+	mcmt_msg::msg::DetectionInfo dect_info;
+
+	// convert cv::Mat frame to ROS2 msg type frame
+	encoding = mat_type2encoding(camera_.frame_.type());
+	sensor_msgs::msg::Image::SharedPtr detect_img_msg = cv_bridge::CvImage(
+		header, encoding, camera_.frame_).toImageMsg();
+
+	// convert cv::Mat masked to ROS2 msg type masked
+	encoding = mat_type2encoding(camera_.masked_.type());
+	sensor_msgs::msg::Image::SharedPtr masked_msg = cv_bridge::CvImage(
+		header, encoding, camera_.masked_).toImageMsg();
+
+	std::vector<int16_t> goodtrack_id_list;
+	std::vector<int16_t> goodtrack_x_list;
+	std::vector<int16_t> goodtrack_y_list;
+	std::vector<int16_t> deadtrack_id_list;
+
+	// get good track's information
+	for (auto & track : camera_.good_tracks_) {
+		goodtrack_id_list.push_back(track.id);
+		goodtrack_x_list.push_back(track.centroid_.x);
+		goodtrack_y_list.push_back(track.centroid_.y);
+	}
+
+	// get gone track ids
+	for (auto & deadtrack_index : camera_.dead_tracks_) {
+		deadtrack_id_list.push_back(deadtrack_index);
+	}
+
+	// get DetectionInfo message
+	dect_info.image = *detect_img_msg;
+	dect_info.masked = *masked_msg;
+	dect_info.goodtracks_id = goodtrack_id_list;
+	dect_info.goodtracks_x = goodtrack_x_list;
+	dect_info.goodtracks_y = goodtrack_y_list;
+	dect_info.gonetracks_id = deadtrack_id_list;
+
+	// publish detection info
+	detection_pub_->publish(dect_info);
 }

@@ -15,7 +15,7 @@
 #include <opencv2/core/ocl.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
-#include <opencv2/tracking.hpp>
+#include <opencv2/tracking/tracking.hpp>
 #include <mcmt_detect/mcmt_params.hpp>
 
 #include <string>
@@ -77,6 +77,10 @@ class Camera {
 		// declare class functions
 		void detect_and_track();
 
+		// declare tracking variables
+		std::vector<Track> tracks_, good_tracks_;
+		std::vector<int> dead_tracks_;
+
 	private:
 		// declare camera variables
 		frame_w_, frame_h_, fps_, next_id_; 
@@ -88,14 +92,10 @@ class Camera {
 		std::vector<cv::Point2f> centroids_;
 
 		// declare tracking variables
-		std::vector<Track> tracks_, gone_tracks_, good_tracks_;
 		std::vector<int> origin_, unassigned_tracks_, unassigned_detections_;
 		// we store the matched track index and detection index in the assigments vector
 		std::vector<std::vector<int>> assignments_;
 		std::vector<int> tracks_to_be_removed_;
-
-		// declare variable for re-identification
-		std::vector<int> dead_tracks_;
 
 		// declare blob detector and background subtractor
 		cv::Ptr<cv::SimpleBlobDetector> detector_;
