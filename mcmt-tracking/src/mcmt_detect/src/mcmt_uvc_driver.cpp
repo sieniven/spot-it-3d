@@ -13,30 +13,29 @@
 
 using mcmt::UVCDriver;
 
-UVCDriver::UVCDriver(const std::string cam_index)
-: Node("UVCDriverNode" + cam_index)
+UVCDriver::UVCDriver(std::string index)
+: Node("UVCDriverNode" + index)
 {
-	RCLCPP_INFO(this->get_logger(), "Initializing UVCDriver" + cam_index);
-	node_handle_ = std::shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});
-	
+	node_handle_ = std::shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});	
 	declare_parameters();
 	get_parameters();
+	RCLCPP_INFO(this->get_logger(), "Initializing UVCDriver" + uvc_index_);
 
 	if (is_realtime_ == true) {
-		cap_ = cv::VideoCapture(video_input_);
+		cap_ = cv::VideoCapture(std::stoi(video_input_));
 	} else {
-		cap_ = cv::VideoCapture(filename_);
+		cap_ = cv::VideoCapture(video_input_);
 	}
 	
-	// create raw image publisher with topic name "mcmt/raw_image_{cam_index}"
-	topic_name_ = "mcmt/raw_image_" + cam_index;
+	// create raw image publisher with topic name "mcmt/raw_image_{uvc_index}"
+	topic_name_ = "mcmt/raw_image_" + uvc_index_;
 	image_pub_ = this->create_publisher<sensor_msgs::msg::Image> (topic_name_, 10);
 
 	if (!cap_.isOpened()) {
-    std::cout << "Error: Cannot open camera " + cam_index + "! Please check!" << std::endl;
+    std::cout << "Error: Cannot open camera " + uvc_index_ + "! Please check!" << std::endl;
   }
 	else {
-		std::cout << "Camera " + cam_index + " opened successful!" << std::endl;
+		std::cout << "Camera " + uvc_index_ + " opened successful!" << std::endl;
 	}
 	cap_.set(cv::CAP_PROP_FPS, 25);
 }
@@ -50,7 +49,7 @@ void UVCDriver::start_record()
 		cap_ >> frame_;
 		// check if getting frame was successful
 		if (frame_.empty()) {
-			std::cout << "Error: Video camera " + cam_index + " is disconnected!" << std::endl;
+			std::cout << "Error: Video camera " + uvc_index_ + " is disconnected!" << std::endl;
 			break;
 		}
 		// publish raw image frames as ROS2 messages
@@ -65,7 +64,7 @@ void UVCDriver::start_record()
 // function to stop video capture
 void UVCDriver::stop_record()
 {
-	std::cout << "Stop capturing camera " + cam_index + " completed!" << std::endl;
+	std::cout << "Stop capturing camera " + uvc_index_ + " completed!" << std::endl;
 	cap_.release();
 }
 
@@ -77,8 +76,8 @@ void UVCDriver::publish_image()
 	rclcpp::Time timestamp_ = this->now();
 	std_msgs::msg::Header header_;
 	std::string encoding_;
-	header.stamp = timestamp_;
-	header.frame_id = frame_id_str_;
+	header_.stamp = timestamp_;
+	header_.frame_id = frame_id_str_;
 
 	// publish raw image frame
 	encoding_ = mat_type2encoding(frame_.type());
@@ -92,6 +91,7 @@ void UVCDriver::declare_parameters()
 	// declare ROS2 video parameters
 	this->declare_parameter("IS_REALTIME");
 	this->declare_parameter("VIDEO_INPUT");
+	this->declare_parameter("CAMERA_INDEX");
 }
 
 void UVCDriver::get_parameters()
@@ -99,13 +99,12 @@ void UVCDriver::get_parameters()
 	// get video parameters
 	IS_REALTIME_param = this->get_parameter("IS_REALTIME");
 	VIDEO_INPUT_param = this->get_parameter("VIDEO_INPUT");
+	CAM_INDEX_param = this->get_parameter("CAMERA_INDEX");
 
 	is_realtime_ = IS_REALTIME_param.as_bool();
-	if (is_realtime_ == true) {
-		video_input_ = VIDEO_INPUT_param.as_int();
-	} else {
-		filename_ = VIDEO_INPUT_param.as_string();
-	}
+	uvc_index_ = CAM_INDEX_param.as_string();
+	video_input_ = VIDEO_INPUT_param.as_string();
+
 }
 
 std::string UVCDriver::mat_type2encoding(int mat_type)

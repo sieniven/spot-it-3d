@@ -16,18 +16,17 @@
 
 int main(int argc, char * argv[])
 {
-	printf("Launching UVCDriver Node....\n");
+	printf("Launching UVCDriver Node 1....\n");
 
 	rclcpp::init(argc, argv);
 
-	// initialize camera UVCDriver nodes
-	std::string cam_index(argv[1]);
-	auto uvc_driver_node = std::make_shared<mcmt::UVCDriver>(cam_index);
+	// initialize camera UVCDriver node
+	auto uvc_driver_node = std::make_shared<mcmt::UVCDriver>("1");
 
 	uvc_driver_node->start_record();
 	uvc_driver_node->stop_record();
 	
-	printf("UVCDriver Node interrupted. Shutting down...\n");
+	printf("UVCDriver Node 1 interrupted. Shutting down...\n");
 	rclcpp::shutdown();
 	return 0;
 }

@@ -33,10 +33,12 @@ find_package(OpenCV REQUIRED)
 ################################################################################################
 include_directories(
   include
+	OpenCV_INCLUDE_DIR
 )
 
 add_library(${PROJECT_NAME}_lib
-  "src/Hungarian.cpp"
+	"src/Hungarian.h"
+	"src/Hungarian.cpp"
   "src/mcmt_detect_utils.cpp"
   "src/mcmt_params.cpp"
   "src/mcmt_processor.cpp"
@@ -57,16 +59,26 @@ set(DEPENDENCIES
 target_link_libraries(${PROJECT_NAME}_lib)
 ament_target_dependencies(${PROJECT_NAME}_lib ${DEPENDENCIES})
 
-set(PERCEPTION_EXECUTABLE "mcmt_perception")
-set(PROCESSOR_EXECUTABLE "mcmt_processor")
+set(PERCEPTION_1_EXECUTABLE "mcmt_perception_1")
+set(PROCESSOR_1_EXECUTABLE "mcmt_processor_1")
+set(PERCEPTION_2_EXECUTABLE "mcmt_perception_2")
+set(PROCESSOR_2_EXECUTABLE "mcmt_processor_2")
 
-add_executable(${PERCEPTION_EXECUTABLE} src/mcmt_perception_main.cpp)
-target_link_libraries(${PERCEPTION_EXECUTABLE} ${PROJECT_NAME}_lib)
-ament_target_dependencies(${PERCEPTION_EXECUTABLE} ${DEPENDENCIES})
+add_executable(${PERCEPTION_1_EXECUTABLE} src/mcmt_perception_1.cpp)
+target_link_libraries(${PERCEPTION_1_EXECUTABLE} ${PROJECT_NAME}_lib)
+ament_target_dependencies(${PERCEPTION_1_EXECUTABLE} ${DEPENDENCIES})
 
-add_executable(${PROCESSOR_EXECUTABLE} src/mcmt_processor_main.cpp)
-target_link_libraries(${PROCESSOR_EXECUTABLE} ${PROJECT_NAME}_lib)
-ament_target_dependencies(${PROCESSOR_EXECUTABLE} ${DEPENDENCIES})
+add_executable(${PROCESSOR_1_EXECUTABLE} src/mcmt_processor_1.cpp)
+target_link_libraries(${PROCESSOR_1_EXECUTABLE} ${PROJECT_NAME}_lib)
+ament_target_dependencies(${PROCESSOR_1_EXECUTABLE} ${DEPENDENCIES})
+
+add_executable(${PERCEPTION_2_EXECUTABLE} src/mcmt_perception_2.cpp)
+target_link_libraries(${PERCEPTION_2_EXECUTABLE} ${PROJECT_NAME}_lib)
+ament_target_dependencies(${PERCEPTION_2_EXECUTABLE} ${DEPENDENCIES})
+
+add_executable(${PROCESSOR_2_EXECUTABLE} src/mcmt_processor_2.cpp)
+target_link_libraries(${PROCESSOR_2_EXECUTABLE} ${PROJECT_NAME}_lib)
+ament_target_dependencies(${PROCESSOR_2_EXECUTABLE} ${DEPENDENCIES})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -82,13 +94,20 @@ endif()
 ################################################################################################
 # install
 ################################################################################################
-install(TARGETS ${PERCEPTION_EXECUTABLE}
+install(TARGETS ${PERCEPTION_1_EXECUTABLE}
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(TARGETS ${PROCESSOR_EXECUTABLE}
+install(TARGETS ${PROCESSOR_1_EXECUTABLE}
   DESTINATION lib/${PROJECT_NAME}
 )
 
+install(TARGETS ${PERCEPTION_2_EXECUTABLE}
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(TARGETS ${PROCESSOR_2_EXECUTABLE}
+  DESTINATION lib/${PROJECT_NAME}
+)
 ament_export_include_directories(include)
 ament_package()

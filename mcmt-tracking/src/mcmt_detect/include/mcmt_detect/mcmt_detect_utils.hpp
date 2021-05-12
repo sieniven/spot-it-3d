@@ -9,13 +9,15 @@
 #define MCMT_DETECT_UTILS_HPP_
 
 #include <opencv2/opencv.hpp>
+#include <opencv2/core.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/ximgproc.hpp>
 #include <opencv2/core/core.hpp>
 #include <opencv2/core/ocl.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/video/video.hpp>
-#include <opencv2/tracking/tracking.hpp>
+#include <opencv2/tracking.hpp>
+#include <opencv2/core/ocl.hpp>
 #include <mcmt_detect/mcmt_params.hpp>
 
 #include <string>
@@ -35,8 +37,8 @@ class Track {
 		// variable to store predicted and actual locations from kf
 		cv::Point2f centroid_, predicted_;
 
-		// bool variable to flag if dcf has been initialized
-		bool dcf_flag_, is_dcf_init_;
+		// declare DCF bool variable
+		bool dcf_flag_, is_dcf_init_, outOfSync_;
 
 		// size of detected blob
 		float size_;
@@ -48,7 +50,7 @@ class Track {
 		// declare class functions
 		void predictKF();
 		void updateKF(cv::Point2f & measurement);
-		void predictDCF();
+		void predictDCF(cv::Mat & frame);
 		void checkDCF(cv::Point2f & measurement, cv::Mat & frame);
 
 	private:
@@ -58,8 +60,7 @@ class Track {
 
 		// declare dcf variables
 		cv::Ptr<cv::Tracker> tracker_;
-		bool outOfSync_;
-		cv::Rect2d box_;
+		cv::Rect box_;
 
 		// declare class functions
 		void createConstantVelocityKF(cv::Point2f & cen);
@@ -69,6 +70,7 @@ class Track {
 class Camera {
 	public:
 		Camera(McmtParams & params, std::string & cam_index, int frame_w, int frame_h);
+		Camera();
 		cv::Mat frame_, gray_, masked_, mask_, element_;
 		int frame_id_;
 		std::string cam_index_;
@@ -83,7 +85,7 @@ class Camera {
 
 	private:
 		// declare camera variables
-		frame_w_, frame_h_, fps_, next_id_; 
+		int frame_w_, frame_h_, fps_, next_id_; 
 		float scale_factor_, aspect_ratio_;
 		bool downsample_;
 
@@ -99,7 +101,7 @@ class Camera {
 
 		// declare blob detector and background subtractor
 		cv::Ptr<cv::SimpleBlobDetector> detector_;
-		cv::Ptr<cv::BackgroundSubtractor> fgbg_;
+		cv::Ptr<cv::BackgroundSubtractorMOG2> fgbg_;
 
 		// declare utility functions
 		int average_brightness();

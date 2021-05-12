@@ -11,33 +11,33 @@
 #include <memory>
 #include <functional>
 
-using mcmt::ProcessorNode;
+using mcmt::McmtProcessorNode;
 
-McmtProcessorNode::McmtProcessorNode(std::string cam_index)
-: Node("ProcessorNode" + cam_index)
+McmtProcessorNode::McmtProcessorNode(std::string index)
+: Node("ProcessorNode" + index)
 {
-	cam_index_ = cam_index;
-	RCLCPP_INFO(this->get_logger(), "Initializing MCMT Processor Node" + cam_index_);
 	node_handle_ = std::shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});
 	declare_parameters();
 	get_parameters();
+	RCLCPP_INFO(this->get_logger(), "Initializing MCMT Processor Node" + proc_index_);
 
 	if (is_realtime_ == true) {
-		cap_ = cv::VideoCapture(video_input_);
+		cap_ = cv::VideoCapture(std::stoi(video_input_));
 	} else {
-		cap_ = cv::VideoCapture(filename_);
+		cap_ = cv::VideoCapture(video_input_);
 	}
 
-	// get camera frame width and height. Processor node has to be initialized before UVCDriver node
+	// get camera frame width and height
+	// note that Processor node has to be initialized before UVCDriver node
 	frame_w_ = int(cap_.get(cv::CAP_PROP_FRAME_WIDTH));
 	frame_h_ = int(cap_.get(cv::CAP_PROP_FRAME_HEIGHT));
 	cap_.release();
 	
 	// initialize Camera class
-	camera_(params_, cam_index, frame_w_, frame_h_);
+	Camera camera_(params_, proc_index_, frame_w_, frame_h_);
 
-	// create detection info publisher with topic name "mcmt/detection_info_{cam_index}"
-	topic_name_ = "mcmt/detection_info_" + cam_index);
+	// create detection info publisher with topic name "mcmt/detection_info_{proc_index}"
+	topic_name_ = "mcmt/detection_info_" + proc_index_;
 	detection_pub_ = this->create_publisher<mcmt_msg::msg::DetectionInfo> (topic_name_, 10);
 
 	// initialize raw image subscriber
@@ -53,20 +53,20 @@ void McmtProcessorNode::detection_callback()
 {
 	// set qos and topic name
 	auto qos = rclcpp::QoS(rclcpp::KeepLast(10));
-	topic_name_ = "mcmt/raw_image_" + cam_index_);
+	topic_name_ = "mcmt/raw_image_" + proc_index_;
 
 	// create raw image subscriber that subscribes to topic name
-	raw_img_sub->create_subscription<sensor_msgs::msg::Image> (
+	raw_img_sub_ = this->create_subscription<sensor_msgs::msg::Image> (
 		topic_name_,
 		qos,
 		[this](const sensor_msgs::msg::Image::SharedPtr msg) -> void
 		{
 			// decode message and get camera frame and id
-			camera_.frame_id_ = msg->header.frame_id;
+			camera_.frame_id_ = std::stoi(msg->header.frame_id);
 			camera_.frame_ = cv::Mat(msg->height, msg->width, encoding2mat_type(msg->encoding),
 															 const_cast<unsigned char *>(msg->data.data()), msg->step);
 			if (msg->encoding == "rgb8") {
-				cv::cvtColor(raw_image, raw_image, cv::COLOR_RGB2BGR);
+				cv::cvtColor(camera_.frame_, camera_.frame_, cv::COLOR_RGB2BGR);
 			}
 
 			// detect and track targets in the camera frame 
@@ -85,6 +85,7 @@ void McmtProcessorNode::declare_parameters()
 {
 	// declare ROS2 video parameters
 	this->declare_parameter("IS_REALTIME");
+	this->declare_parameter("CAMERA_INDEX");
 	this->declare_parameter("VIDEO_INPUT");
 	this->declare_parameter("FRAME_WIDTH");
 	this->declare_parameter("FRAME_HEIGHT");
@@ -118,6 +119,7 @@ void McmtProcessorNode::get_parameters()
 {
 	// get video parameters
 	IS_REALTIME_param = this->get_parameter("IS_REALTIME");
+	CAM_INDEX_param = this->get_parameter("CAMERA_INDEX");
 	VIDEO_INPUT_param = this->get_parameter("VIDEO_INPUT");
 	FRAME_WIDTH_param = this->get_parameter("FRAME_WIDTH");
 	FRAME_HEIGHT_param = this->get_parameter("FRAME_HEIGHT");
@@ -143,34 +145,29 @@ void McmtProcessorNode::get_parameters()
 	BACKGROUND_CONTOUR_CIRCULARITY_param = this->get_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
 
 	// initialize McmtParams class to store the parameter values
-	params_(VIDEO_INPUT_0_param.as_int(),
-					VIDEO_INPUT_1_param.as_int(),
-					FRAME_WIDTH_param.as_int(),
-					FRAME_HEIGHT_param.as_int(), 
-					VIDEO_FPS_param.as_int(),
-					MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_param.as_int(),
-					VISIBILITY_RATIO_param.as_double(),
-					VISIBILITY_THRESH_param.as_double(),
-					CONSECUTIVE_THRESH_param.as_double(),
-					AGE_THRESH_param.as_double(),
-					SECONDARY_FILTER_param.as_int(),
-					SEC_FILTER_DELAY_param.as_double(),
-					FGBG_HISTORY_param.as_int(),
-					BACKGROUND_RATIO_param.as_double(),
-					NMIXTURES_param.as_int(),
-					BRIGHTNESS_GAIN_param.as_int(),
-					FGBG_LEARNING_RATE_param.as_double(),
-					DILATION_ITER_param.as_int(),
-					REMOVE_GROUND_ITER_param.as_double(),
-					BACKGROUND_CONTOUR_CIRCULARITY_param.as_double());
+	McmtParams params_(FRAME_WIDTH_param.as_int(),
+										 FRAME_HEIGHT_param.as_int(), 
+										 VIDEO_FPS_param.as_int(),
+										 MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_param.as_int(),
+										 VISIBILITY_RATIO_param.as_double(),
+										 VISIBILITY_THRESH_param.as_double(),
+										 CONSECUTIVE_THRESH_param.as_double(),
+										 AGE_THRESH_param.as_double(),
+										 SECONDARY_FILTER_param.as_int(),
+										 SEC_FILTER_DELAY_param.as_double(),
+										 FGBG_HISTORY_param.as_int(),
+										 BACKGROUND_RATIO_param.as_double(),
+										 NMIXTURES_param.as_int(),
+										 BRIGHTNESS_GAIN_param.as_int(),
+										 FGBG_LEARNING_RATE_param.as_double(),
+										 DILATION_ITER_param.as_int(),
+										 REMOVE_GROUND_ITER_param.as_double(),
+										 BACKGROUND_CONTOUR_CIRCULARITY_param.as_double());
 
 	// get video parameters
 	is_realtime_ = IS_REALTIME_param.as_bool();
-	if (is_realtime_ == true) {
-		video_input_ = VIDEO_INPUT_param.as_int();
-	} else {
-		filename_ = VIDEO_INPUT_param.as_string();
-	}
+	proc_index_ = CAM_INDEX_param.as_string();
+	video_input_ = VIDEO_INPUT_param.as_string();
 }
 
 std::string McmtProcessorNode::mat_type2encoding(int mat_type)
@@ -215,9 +212,11 @@ void McmtProcessorNode::publish_info()
 	rclcpp::Time timestamp = this->now();
 	std_msgs::msg::Header header;
 	std::string encoding;
+	std::string frame_id_str;
 
 	header.stamp = timestamp;
-	header.frame_id = camera_.frame_id_;
+	frame_id_str = std::to_string(camera_.frame_id_);
+	header.frame_id = frame_id_str;
 
 	mcmt_msg::msg::DetectionInfo dect_info;
 
@@ -238,7 +237,7 @@ void McmtProcessorNode::publish_info()
 
 	// get good track's information
 	for (auto & track : camera_.good_tracks_) {
-		goodtrack_id_list.push_back(track.id);
+		goodtrack_id_list.push_back(track.id_);
 		goodtrack_x_list.push_back(track.centroid_.x);
 		goodtrack_y_list.push_back(track.centroid_.y);
 	}

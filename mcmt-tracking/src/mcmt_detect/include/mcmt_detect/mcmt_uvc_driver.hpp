@@ -27,20 +27,19 @@ namespace mcmt
 {
 class UVCDriver : public rclcpp::Node {
   public:
-    UVCDriver(const std::string cam_index);
+    UVCDriver(std::string index);
     void start_record();
     void stop_record();
 
 		// declare ROS2 parameters
-		rclcpp::Parameter IS_REALTIME_param, VIDEO_INPUT_param;
+		rclcpp::Parameter CAM_INDEX_param, IS_REALTIME_param, VIDEO_INPUT_param;
 
 		// declare video parameters
-		int video_input_;
-		std::string filename_;
+		std::string video_input_;
 		bool is_realtime_;
 
 		// declare node parameters
-    std::string topic_name_;
+    std::string uvc_index_, topic_name_;
     rclcpp::Node::SharedPtr node_handle_;
 
   private:

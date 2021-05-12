@@ -29,10 +29,14 @@ namespace mcmt
 {
 class McmtProcessorNode : public rclcpp::Node {
 	public:
-		McmtProcessorNode(std::string cam_index);
+		McmtProcessorNode(std::string index);
+		// declare node parameters
+    rclcpp::Node::SharedPtr node_handle_;
+		std::string proc_index_, topic_name_;
+
 		// declare ROS2 video parameters
 		rclcpp::Parameter IS_REALTIME_param, VIDEO_INPUT_param, FRAME_WIDTH_param, FRAME_HEIGHT_param,
-											VIDEO_FPS_param, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_param;
+											CAM_INDEX_param, VIDEO_FPS_param, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_param;
 
 		// declare ROS2 filter parameters
 		rclcpp::Parameter VISIBILITY_RATIO_param, VISIBILITY_THRESH_param, CONSECUTIVE_THRESH_param,
@@ -48,19 +52,14 @@ class McmtProcessorNode : public rclcpp::Node {
 		Camera camera_;
 
 		// declare video parameters
-		int video_input_, frame_w_, frame_h_;
-		std::string filename_;
-		bool is_realtime_;
-
-		// declare ROS2 publishers
-        rclcpp::Publisher<mcmt_msg::msg::DetectionInfo>::SharedPtr detection_pub_;
-
     cv::VideoCapture cap_;
+		int frame_w_, frame_h_;
+		std::string video_input_;
+		bool is_realtime_;
 
 	private:
 		rclcpp::Subscription<sensor_msgs::msg::Image>::SharedPtr raw_img_sub_;
-		rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr detected_img_pub_;
-		std::string cam_index_, topic_name_;
+		rclcpp::Publisher<mcmt_msg::msg::DetectionInfo>::SharedPtr detection_pub_;
 
 		std::string mat_type2encoding(int mat_type);
 		int encoding2mat_type(const std::string & encoding);

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import os
+from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch_ros.actions import Node
 
@@ -13,7 +14,15 @@ def generate_launch_description():
 	return LaunchDescription([
 		Node(
 			package='mcmt_detect',
-			node_executable='mcmt_processor',
+			node_executable='mcmt_perception_1',
+			name='UVCDriverNode1',
+			output='screen',
+			emulate_tty=True,
+			parameters=[config]),
+		Node(
+			package='mcmt_detect',
+			node_executable='mcmt_perception_2',
+			name='UVCDriverNode2',
 			output='screen',
 			emulate_tty=True,
 			parameters=[config]),

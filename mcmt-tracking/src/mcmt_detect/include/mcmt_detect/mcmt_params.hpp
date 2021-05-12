@@ -33,6 +33,9 @@ class McmtParams {
 			const float REMOVE_GROUND_ITER,
 			const float BACKGROUND_CONTOUR_CIRCULARITY);
 		
+		// initialize a default constructor
+		McmtParams();
+		
 		// declare video parameters
 		int FRAME_WIDTH_, FRAME_HEIGHT_, VIDEO_FPS_, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_;
 
