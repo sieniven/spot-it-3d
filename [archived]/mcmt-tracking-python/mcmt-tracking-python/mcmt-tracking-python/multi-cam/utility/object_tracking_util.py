@@ -90,7 +90,7 @@ def scalar_to_rgb(scalar_value, max_value):
 # This is for situations where there is bright sunlight reflecting off the drone, causing it to blend into sky
 # Increasing contrast of the whole image will detect drone but cause false positives in the background
 # Hence the sky must be extracted before a localised contrast increase can be applied to it
-# The sky is extracted by converting the image from RGB to HSV and applying thresholding operations
+# The sky is extracted by converting the image from RGB to HSV and applying thresholding + morphological operations
 def extract_sky(frame):
     
     # Convert image from RGB to HSV
@@ -100,6 +100,11 @@ def extract_sky(frame):
     lower = np.array([0, 0, 200])
     upper = np.array([180, 255, 255])
     masked = cv2.inRange(masked, lower, upper)
+
+    # Morphologically open the image (erosion followed by dilation) to remove small patches of sky among the background
+    # These small patches of sky may be mistaken for drones if not removed
+    kernel = np.ones((5, 5), np.uint8)
+    masked = cv2.morphologyEx(masked, cv2.MORPH_OPEN, kernel, iterations=parm.DILATION_ITER)
     
     # Retrieve original RGB image with filtered sky using bitwise and
     masked = cv2.bitwise_and(frame, frame, mask=masked)
@@ -198,7 +203,7 @@ def setup_system_objects(scale_factor):
 def detect_objects(frame, mask, fgbg, detector, origin, index, scale_factor):
     if parm.SUNLIGHT_CORRECTION:
         masked = extract_sky(frame)
-        masked = cv2.convertScaleAbs(masked, alpha=1, beta=0)
+        masked = cv2.convertScaleAbs(masked, alpha=2, beta=0)
     else:
         masked = cv2.convertScaleAbs(frame, alpha=1, beta=0)
     imshow_resized("pre-backhground subtraction", masked)
