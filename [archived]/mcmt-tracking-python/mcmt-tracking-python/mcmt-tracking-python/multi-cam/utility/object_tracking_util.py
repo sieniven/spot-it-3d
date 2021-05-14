@@ -86,11 +86,12 @@ def scalar_to_rgb(scalar_value, max_value):
     else:  # x == 5:
         return 255, 0, 255
 
-# Extract sky from the image. This is used when there is bright sunlight reflecting off the drone
-# Hence a localised contrast increase must be applied to the sky to make the drone stand out
-# Increasing contrast of the whole image will cause false positives in the background
+# Take in the original frame, and return a masked image that contains only the sky
+# This is for situations where there is bright sunlight reflecting off the drone, causing it to blend into sky
+# Increasing contrast of the whole image will detect drone but cause false positives in the background
+# Hence the sky must be extracted before a localised contrast increase can be applied to it
 # The sky is extracted by converting the image from RGB to HSV and applying thresholding operations
-def filter_sky(frame):
+def extract_sky(frame):
     
     # Convert image from RGB to HSV
     masked = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -195,8 +196,8 @@ def setup_system_objects(scale_factor):
 # formula is im_out = alpha * im_in + beta
 # Therefore to change brightness before contrast, we need to do alpha = 1 first
 def detect_objects(frame, mask, fgbg, detector, origin, index, scale_factor):
-    if parm.SKY_FILTER:
-        masked = filter_sky(frame)
+    if parm.SUNLIGHT_CORRECTION:
+        masked = extract_sky(frame)
         masked = cv2.convertScaleAbs(masked, alpha=1, beta=0)
     else:
         masked = cv2.convertScaleAbs(frame, alpha=1, beta=0)

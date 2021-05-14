@@ -103,4 +103,4 @@ MISC PARAMETERS
 
 # SKY_FILTER
 # Toggle the sky filter, which is required for localised contrast increase in sky under bright sunlight conditions
-SKY_FILTER = False
+SUNLIGHT_CORRECTION = True
