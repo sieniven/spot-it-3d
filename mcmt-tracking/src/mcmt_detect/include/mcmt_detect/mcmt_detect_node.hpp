@@ -20,7 +20,6 @@
 #include <cv_bridge/cv_bridge.h>
 
 // local header files
-#include <mcmt_detect/mcmt_params.hpp>
 #include <mcmt_detect/mcmt_detect_utils.hpp>
 #include <mcmt_msg/msg/detection_info.hpp>
 #include <mcmt_msg/msg/raw_images.hpp>

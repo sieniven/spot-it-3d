@@ -12,7 +12,6 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/ximgproc.hpp>
 #include <opencv2/tracking.hpp>
-#include <mcmt_detect/mcmt_params.hpp>
 
 #include <string>
 #include <memory>
@@ -67,52 +66,6 @@ class Track {
 		// declare class functions
 		void createConstantVelocityKF(cv::Point2f & cen);
 		void createDCF();
-};
-
-class Camera {
-	public:
-		Camera(McmtParams & params, int frame_w, int frame_h);
-		Camera();
-		cv::Mat frame_, masked_, mask_, element_, removebg_;
-		int frame_id_;
-		McmtParams params_;
-
-		// declare detection and tracking functions
-		cv::Mat remove_ground();
-		void detect_objects();
-		void predict_new_locations_of_tracks();
-		void detection_to_track_assignment();
-		void update_assigned_tracks();
-		void update_unassigned_tracks();
-		void delete_lost_tracks();
-		void create_new_tracks();
-		std::vector<mcmt::Track> filter_tracks();
-
-		// declare utility functions
-		float euclideanDist(cv::Point2f & p, cv::Point2f & q);
-		std::vector<int> apply_hungarian_algo(std::vector<std::vector<double>> & cost_matrix);
-
-		// declare tracking variables
-		std::vector<Track> tracks_, good_tracks_;
-		std::vector<int> dead_tracks_;
-
-		// declare blob detector and background subtractor
-		cv::Ptr<cv::SimpleBlobDetector> detector_;
-
-		// declare camera variables
-		int frame_w_, frame_h_, fps_, next_id_; 
-		float scale_factor_, aspect_ratio_;
-		bool downsample_;
-
-		// declare detection variables
-		std::vector<float> sizes_;
-		std::vector<cv::Point2f> centroids_;
-
-		// declare tracking variables
-		std::vector<int> origin_, unassigned_tracks_, unassigned_detections_;
-		// we store the matched track index and detection index in the assigments vector
-		std::vector<std::vector<int>> assignments_;
-		std::vector<int> tracks_to_be_removed_;
 };
 }
 

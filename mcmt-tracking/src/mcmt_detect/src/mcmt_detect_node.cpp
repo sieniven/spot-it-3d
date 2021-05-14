@@ -5,7 +5,7 @@
  * raw frames into our ROS2 DDS-RTPS ecosystem.
  */
 
-#include <mcmt_detect/mcmt_uvc_driver.hpp>
+#include <mcmt_detect/mcmt_detect_node.hpp>
 #include <stdlib.h>
 #include <iostream>
 #include <math.h>
