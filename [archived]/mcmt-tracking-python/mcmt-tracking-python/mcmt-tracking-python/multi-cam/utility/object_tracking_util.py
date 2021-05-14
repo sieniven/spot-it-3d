@@ -86,6 +86,24 @@ def scalar_to_rgb(scalar_value, max_value):
     else:  # x == 5:
         return 255, 0, 255
 
+# Extract sky from the image. This is used when there is bright sunlight reflecting off the drone
+# Hence a localised contrast increase must be applied to the sky to make the drone stand out
+# Increasing contrast of the whole image will cause false positives in the background
+# The sky is extracted by converting the image from RGB to HSV and applying thresholding operations
+def filter_sky(frame):
+    
+    # Convert image from RGB to HSV
+    masked = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Threshold the HSV image. A clear, sunlit sky has high V value (200 - 255)
+    lower = np.array([0, 0, 200])
+    upper = np.array([180, 255, 255])
+    masked = cv2.inRange(masked, lower, upper)
+    
+    # Retrieve original RGB image with filtered sky using bitwise and
+    masked = cv2.bitwise_and(frame, frame, mask=masked)
+
+    return masked
 
 def remove_ground(im_in, dilation_iterations, background_contour_circularity, frame, index):
     kernel_dilation = np.ones((5, 5), np.uint8)
@@ -121,7 +139,7 @@ def imshow_resized(window_name, img):
 
     window_size = (int(600), int(600 / aspect_ratio))
     img = cv2.resize(img, window_size, interpolation=cv2.INTER_CUBIC)
-    # cv2.imshow(window_name, img)
+    cv2.imshow(window_name, img)
 
 
 def downsample_image(img):
@@ -177,13 +195,16 @@ def setup_system_objects(scale_factor):
 # formula is im_out = alpha * im_in + beta
 # Therefore to change brightness before contrast, we need to do alpha = 1 first
 def detect_objects(frame, mask, fgbg, detector, origin, index, scale_factor):
-    masked = cv2.convertScaleAbs(frame, alpha=1, beta=0)
+    if parm.SKY_FILTER:
+        masked = filter_sky(frame)
+        masked = cv2.convertScaleAbs(masked, alpha=1, beta=0)
+    else:
+        masked = cv2.convertScaleAbs(frame, alpha=1, beta=0)
+    imshow_resized("pre-backhground subtraction", masked)
     masked = cv2.convertScaleAbs(masked, alpha=1, beta=256 - average_brightness(16, frame, mask) + parm.BRIGHTNESS_GAIN)
     # masked = cv2.convertScaleAbs(masked, alpha=2, beta=128)
     # masked = cv2.cvtColor(masked, cv2.COLOR_BGR2GRAY)
     # masked = threshold_rgb(frame)
-
-    # imshow_resized("pre-backhground subtraction", masked)
 
     # Subtract Background
     # Learning rate affects how often the model is updated
@@ -191,6 +212,7 @@ def detect_objects(frame, mask, fgbg, detector, origin, index, scale_factor):
     # Found that 0.1 - 0.3 is a good range
     masked = fgbg.apply(masked, learningRate=parm.FGBG_LEARNING_RATE)
     masked = remove_ground(masked, int(13 / (2.26 / scale_factor)), 0.5, frame, index)
+    imshow_resized("post-backhground subtraction", masked)
 
     # Morphological Transforms
     # Close to remove black spots

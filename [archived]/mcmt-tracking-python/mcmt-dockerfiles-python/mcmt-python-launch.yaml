@@ -9,7 +9,7 @@ services:
     network_mode: "host"
     devices:
       - "/dev/video2:/dev/video0"
-      - "/dev/video4:/dev/video1"
+      # - "/dev/video4:/dev/video1"
     environment:
       - DISPLAY=unix$DISPLAY
     volumes:

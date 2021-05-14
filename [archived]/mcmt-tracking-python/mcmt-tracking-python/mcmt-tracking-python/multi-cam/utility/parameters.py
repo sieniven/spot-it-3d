@@ -95,3 +95,12 @@ FGBG_LEARNING_RATE = 0.2
 # INT
 # Number of iterations of pixel dilation.
 DILATION_ITER = 2
+
+'''
+MISC PARAMETERS
+'''
+# Note: Params in this category should be transferred to a more suitable category once finalised
+
+# SKY_FILTER
+# Toggle the sky filter, which is required for localised contrast increase in sky under bright sunlight conditions
+SKY_FILTER = False
