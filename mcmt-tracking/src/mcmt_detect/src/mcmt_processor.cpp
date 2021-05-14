@@ -5,11 +5,16 @@
  * It subscribes to a camera's raw image topic channel that is published by our UVCDriver node.
  */
 
+#define _USE_MATH_DEFINES
+
 #include <mcmt_detect/mcmt_processor.hpp>
 #include <stdlib.h>
 #include <iostream>
+#include <math.h>
 #include <memory>
+#include <algorithm>
 #include <functional>
+#include "Hungarian.h"
 
 using mcmt::McmtProcessorNode;
 
@@ -34,11 +39,17 @@ McmtProcessorNode::McmtProcessorNode(std::string index)
 	cap_.release();
 	
 	// initialize Camera class
-	Camera camera_(params_, proc_index_, frame_w_, frame_h_);
+	Camera camera_(params_, frame_w_, frame_h_);
 
 	// create detection info publisher with topic name "mcmt/detection_info_{proc_index}"
 	topic_name_ = "mcmt/detection_info_" + proc_index_;
 	detection_pub_ = this->create_publisher<mcmt_msg::msg::DetectionInfo> (topic_name_, 10);
+
+	// initialize blob detector
+	cv::SimpleBlobDetector::Params blob_params;
+	blob_params.filterByConvexity = false;
+	blob_params.filterByCircularity = false;
+	detector_ = cv::SimpleBlobDetector::create(blob_params);
 
 	// initialize raw image subscriber
 	detection_callback();
@@ -53,24 +64,35 @@ void McmtProcessorNode::detection_callback()
 {
 	// set qos and topic name
 	auto qos = rclcpp::QoS(rclcpp::KeepLast(10));
-	topic_name_ = "mcmt/raw_image_" + proc_index_;
+	topic_name_ = "mcmt/raw_images_" + proc_index_;
 
 	// create raw image subscriber that subscribes to topic name
-	raw_img_sub_ = this->create_subscription<sensor_msgs::msg::Image> (
+	raw_img_sub_ = this->create_subscription<mcmt_msg::msg::RawImages> (
 		topic_name_,
 		qos,
-		[this](const sensor_msgs::msg::Image::SharedPtr msg) -> void
+		[this](const mcmt_msg::msg::RawImages::SharedPtr msg) -> void
 		{
 			// decode message and get camera frame and id
-			camera_.frame_id_ = std::stoi(msg->header.frame_id);
-			camera_.frame_ = cv::Mat(msg->height, msg->width, encoding2mat_type(msg->encoding),
-															 const_cast<unsigned char *>(msg->data.data()), msg->step);
-			if (msg->encoding == "rgb8") {
+			camera_.frame_id_ = std::stoi(msg->image.header.frame_id);
+			
+			camera_.frame_ = cv::Mat(
+				msg->image.height, msg->image.width, encoding2mat_type(msg->image.encoding),
+				const_cast<unsigned char *>(msg->image.data.data()), msg->image.step);
+			
+			if (msg->image.encoding == "rgb8") {
 				cv::cvtColor(camera_.frame_, camera_.frame_, cv::COLOR_RGB2BGR);
 			}
 
+			camera_.masked_ = cv::Mat(
+				msg->masked.height, msg->masked.width, encoding2mat_type(msg->image.encoding),
+				const_cast<unsigned char *>(msg->masked.data.data()), msg->masked.step);
+			
+			if (msg->image.encoding == "rgb8") {
+				cv::cvtColor(camera_.masked_, camera_.masked_, cv::COLOR_RGB2BGR);
+			}
+
 			// detect and track targets in the camera frame 
-			camera_.detect_and_track();
+			detect_and_track();
 
 			// publish camera information
 			publish_info();
@@ -101,11 +123,6 @@ void McmtProcessorNode::declare_parameters()
 	this->declare_parameter("SEC_FILTER_DELAY");
 
 	// declare ROS2 background subtractor parameters
-	this->declare_parameter("FGBG_HISTORY");
-	this->declare_parameter("BACKGROUND_RATIO");
-	this->declare_parameter("NMIXTURES");
-	this->declare_parameter("BRIGHTNESS_GAIN");
-	this->declare_parameter("FGBG_LEARNING_RATE");
 	this->declare_parameter("DILATION_ITER");
 	this->declare_parameter("REMOVE_GROUND_ITER");
 	this->declare_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
@@ -135,11 +152,6 @@ void McmtProcessorNode::get_parameters()
 	SEC_FILTER_DELAY_param = this->get_parameter("SEC_FILTER_DELAY");
 
 	// get background subtractor parameters
-	FGBG_HISTORY_param = this->get_parameter("FGBG_HISTORY");
-	BACKGROUND_RATIO_param = this->get_parameter("BACKGROUND_RATIO");
-	NMIXTURES_param = this->get_parameter("NMIXTURES");
-	BRIGHTNESS_GAIN_param = this->get_parameter("BRIGHTNESS_GAIN");
-	FGBG_LEARNING_RATE_param = this->get_parameter("FGBG_LEARNING_RATE");
 	DILATION_ITER_param = this->get_parameter("DILATION_ITER");
 	REMOVE_GROUND_ITER_param = this->get_parameter("REMOVE_GROUND_ITER");
 	BACKGROUND_CONTOUR_CIRCULARITY_param = this->get_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
@@ -257,4 +269,79 @@ void McmtProcessorNode::publish_info()
 
 	// publish detection info
 	detection_pub_->publish(dect_info);
+}
+
+/**
+ * This is our main detection and tracking algorithm. This function runs for every image callback 
+ * that our raw image subscriber receives in the McmtProcessorNode. We run our detection algorithm 
+ * (detect_objects()) and tracking algorithm here in this pipelines.
+ */
+void McmtProcessorNode::detect_and_track()
+{
+	// convert masked to grayscale
+	cv::cvtColor(camera_.masked_, camera_.masked_, cv::COLOR_BGR2GRAY);
+	
+	// clear detection variable vectors
+	camera_.sizes_.clear();
+	camera_.centroids_.clear();
+
+	// get detections
+	camera_.detect_objects();
+	cv::imshow(("Remove Ground " + proc_index_), camera_.removebg_);
+	
+	// apply state estimation filters
+	camera_.predict_new_locations_of_tracks();
+
+	// clear tracking variable vectors
+	camera_.assignments_.clear();
+	camera_.unassigned_tracks_.clear();
+	camera_.unassigned_detections_.clear();
+	camera_.tracks_to_be_removed_.clear();
+
+	// get cost matrix and match detections and track targets
+	camera_.detection_to_track_assignment();
+
+	// updated assigned tracks
+	camera_.update_assigned_tracks();
+
+	// update unassigned tracks, and delete lost tracks
+	camera_.update_unassigned_tracks();
+	camera_.delete_lost_tracks();
+
+	// create new tracks
+	camera_.create_new_tracks();
+
+	// convert masked to BGR
+	cv::cvtColor(camera_.masked_, camera_.masked_, cv::COLOR_GRAY2BGR);
+
+	// filter the tracks
+	camera_.good_tracks_ = camera_.filter_tracks();
+
+	// show masked and frame
+	cv::imshow(("Frame " + proc_index_), camera_.frame_);
+	cv::imshow(("Masked " + proc_index_), camera_.masked_);
+	cv::waitKey(1);
+}
+
+void McmtProcessorNode::detect_objects()
+{
+	cv::Mat removebg_ = camera_.remove_ground();
+
+	// apply morphological transformation
+	cv::dilate(camera_.masked_, camera_.masked_, camera_.element_, cv::Point(), camera_.params_.DILATION_ITER_);
+
+	// invert frame such that black pixels are foreground
+	cv::bitwise_not(camera_.masked_, camera_.masked_);
+
+	// apply blob detection
+	std::vector<cv::KeyPoint> keypoints;
+	std::cout << "hi" << std::endl;
+	detector_->detect(camera_.masked_, keypoints);
+	std::cout << "hi" << std::endl;
+
+	// clear vectors to store sizes and centroids of current frame's detected targets
+	for (auto & it : keypoints) {
+		camera_.centroids_.push_back(it.pt);
+		camera_.sizes_.push_back(it.size);
+	}
 }

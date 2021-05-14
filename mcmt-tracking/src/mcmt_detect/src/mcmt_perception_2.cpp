@@ -21,7 +21,7 @@ int main(int argc, char * argv[])
 	rclcpp::init(argc, argv);
 
 	// initialize camera UVCDriver node
-	auto uvc_driver_node = std::make_shared<mcmt::UVCDriver>("2");
+	auto uvc_driver_node = std::make_shared<mcmt::McmtDetectNode>("2");
 
 	uvc_driver_node->start_record();
 	uvc_driver_node->stop_record();

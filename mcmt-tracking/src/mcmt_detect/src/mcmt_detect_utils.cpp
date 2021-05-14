@@ -21,9 +21,15 @@ using namespace mcmt;
  * This class is for tracking the detected blobs, and using state estimators 
  * (KF and DCF) to predict the location of the track in the next frame.
 */
-Track::Track(int track_id, float size, cv::Point2f centroid, McmtParams & parameter)
+Track::Track(
+	int track_id,
+	float size,
+	cv::Point2f centroid,
+	int video_fps,
+	float sec_filter_delay)
 {
-	param_ptr_ = &parameter;
+	vid_fps_ = video_fps;
+	sec_filter_delay_ = sec_filter_delay;
 	
 	// set the id and size of detected track
 	id_ = track_id;
@@ -54,34 +60,32 @@ void Track::createConstantVelocityKF(cv::Point2f & cen)
 {
 	cv::KalmanFilter kf_(4, 2, 0);
 	
-	float transitionMatrix[16] = { 1, 0, 1, 0,
-																 0, 1, 0, 1,
-																 0, 0, 1, 0,
-																 0, 0, 0, 1 };
+	kf_.transitionMatrix = (cv::Mat_<float>(4, 4) <<
+		1, 0, 1, 0,
+		0, 1, 0, 1,
+		0, 0, 1, 0,
+		0, 0, 0, 1);
+	
+	kf_.measurementMatrix = (cv::Mat_<float>(2, 4) <<
+		1, 0, 0, 0,
+		0, 1, 0, 0);
 
-	float measurementMatrix[8] = { 1, 0, 0, 0,
-																 0, 1, 0, 0 };
-	
-	float processNoiseCov[16] = { 100, 0, 0, 0,
-																 0, 100, 0, 0,
-																 0, 0, 25, 0,
-																 0, 0, 0, 25 };
-	
-	kf_.transitionMatrix = cv::Mat(4, 4, CV_32F, transitionMatrix);
-	kf_.measurementMatrix = cv::Mat(2, 4, CV_32F, measurementMatrix);
-	kf_.processNoiseCov = cv::Mat(4, 4, CV_32F, processNoiseCov);
-	
+	kf_.processNoiseCov = (cv::Mat_<float>(4, 4) <<
+		100, 0, 0, 0,
+		0, 100, 0, 0,
+		0, 0, 25, 0,
+		0, 0, 0, 25);
+
 	cv::setIdentity(kf_.measurementNoiseCov, cv::Scalar::all(100)); 	// R, 2x2
 	cv::setIdentity(kf_.errorCovPost, cv::Scalar::all(1));
 
-	int stateSize = 4;
+	int stateSize = 2;
 	cv::Mat state_(stateSize, 1, CV_32F);
 
 	// input detected centroid location
 	state_.at<float>(0) = cen.x;
 	state_.at<float>(1) = cen.y;
-	state_.at<float>(2) = 0;
-	state_.at<float>(3) = 0;
+
 	kf_.statePost = state_;
 }
 
@@ -102,6 +106,7 @@ void Track::createDCF()
 void Track::predictKF()
 {
 	cv::Mat prediction = kf_.predict();
+	std::cout << "hihi" << prediction << std::endl;
 	predicted_.x = prediction.at<float>(0);
 	predicted_.y = prediction.at<float>(1);
 }
@@ -127,7 +132,7 @@ void Track::updateKF(cv::Point2f & measurement)
  */
 void Track::predictDCF(cv::Mat & frame)
 {
-	if (age_ >= param_ptr_->VIDEO_FPS_ && is_dcf_init_ == true) {
+	if (age_ >= vid_fps_ && is_dcf_init_ == true) {
 		bool ok = tracker_->update(frame, box_);
 	}
 }
@@ -141,13 +146,13 @@ void Track::checkDCF(cv::Point2f & measurement, cv::Mat & frame)
 {
 	// check if track age is sufficiently large. if it equals to the set prarameter, initialize the DCF tracker
 	if (dcf_flag_ == true) {
-		if (age_ == int(max((param_ptr_->SEC_FILTER_DELAY_ * param_ptr_->VIDEO_FPS_), float(30.0)) - 1)) {
+		if (age_ == int(std::max((sec_filter_delay_ * vid_fps_), float(30.0)) - 1)) {
 			cv::Rect box_((measurement.x - (size_ / 2)), (measurement.y - (size_ / 2)), size_, size_);
 			tracker_->init(frame, box_);
 		}
 		// check if the measured track is not too far away from DCF predicted position. if it is too far away,
 		// we will mark it as out of sync with the DCF tracker
-		if (age_ >= int(max((param_ptr_->SEC_FILTER_DELAY_ * param_ptr_->VIDEO_FPS_), float(30.0)))) {
+		if (age_ >= int(std::max((sec_filter_delay_ * vid_fps_), float(30.0)))) {
 			if (((measurement.x < (box_.x - (1 * box_.width))) || 
 					 (measurement.x > (box_.x + (2 * box_.width)))) &&
 					((measurement.y < (box_.y - (1 * box_.height))) ||
@@ -168,11 +173,10 @@ void Track::checkDCF(cv::Point2f & measurement, cv::Mat & frame)
 // define default constructor
 Camera::Camera(){}
 
-Camera::Camera(McmtParams & params, std::string & cam_index, int frame_w, int frame_h)
+Camera::Camera(McmtParams & params, int frame_w, int frame_h)
 {
 	// initialize McmtParams class
 	params_ = params;
-	cam_index_ = cam_index;
 
 	// initialize camera video parameters
 	frame_w_ = frame_w;
@@ -190,15 +194,6 @@ Camera::Camera(McmtParams & params, std::string & cam_index, int frame_w, int fr
 		scale_factor_ = (sqrt(pow(frame_w_, 2) + pow(frame_h_, 2))) / (sqrt(pow(848, 2) + pow(480, 2)));
 	}
 
-	int hist = int(params_.FGBG_HISTORY_ * params_.VIDEO_FPS_);
-	double varThresh = 4 / scale_factor_;
-	bool detectShad = false;
-
-	// initialize background subtractor
-	fgbg_ = cv::createBackgroundSubtractorMOG2(hist, varThresh, detectShad);
-	fgbg_->setBackgroundRatio(params_.BACKGROUND_RATIO_);
-	fgbg_->setNMixtures(params_.NMIXTURES_);
-
 	// initialize blob detector
 	cv::SimpleBlobDetector::Params blob_params;
 	blob_params.filterByConvexity = false;
@@ -212,64 +207,6 @@ Camera::Camera(McmtParams & params, std::string & cam_index, int frame_w, int fr
 
 	// initialize kernel used for morphological transformations
 	element_ = cv::getStructuringElement(0, cv::Size(5, 5));
-
-	// initialize openCV namedWindows
-	cv::namedWindow("Frame " + cam_index_);
-	cv::namedWindow("Masked " + cam_index_);
-	cv::namedWindow("Remove Ground " + cam_index_);
-}
-
-/**
- * This is our main detection and tracking algorithm. This function runs for every image callback 
- * that our raw image subscriber receives in the McmtProcessorNode. We run our detection algorithm 
- * (detect_objects()) and tracking algorithm here in this pipelines.
- */
-void Camera::detect_and_track()
-{
-	// initialize new mask of zeros
-	mask_ = cv::Mat::zeros(frame_h_, frame_w_, CV_8UC1);
-	
-	// clear detection variable vectors
-	sizes_.clear();
-	centroids_.clear();
-
-	// get detections
-	detect_objects();
-	
-	// apply state estimation filters
-	predict_new_locations_of_tracks();
-
-	// clear tracking variable vectors
-	assignments_.clear();
-	unassigned_tracks_.clear();
-	unassigned_detections_.clear();
-	tracks_to_be_removed_.clear();
-
-	// get cost matrix and match detections and track targets
-	detection_to_track_assignment();
-
-	// updated assigned tracks
-	update_assigned_tracks();
-
-	// update unassigned tracks, and delete lost tracks
-	update_unassigned_tracks();
-	delete_lost_tracks();
-
-	// create new tracks
-	create_new_tracks();
-
-	// convert masked to BGR
-	cv::cvtColor(masked_, masked_, cv::COLOR_GRAY2BGR);
-
-	// filter the tracks
-	good_tracks_ = filter_tracks();
-
-	// show masked and frame
-	cv::imshow(("Frame " + cam_index_), frame_);
-	cv::imshow(("Masked " + cam_index_), masked_);
-
-	cv::waitKey(1);
-
 }
 
 /** 
@@ -283,24 +220,17 @@ void Camera::detect_and_track()
  */
 void Camera::detect_objects()
 {
-	cv::convertScaleAbs(frame_, masked_);
-	cv::convertScaleAbs(masked_, masked_, 1, (256 - average_brightness() + params_.BRIGHTNESS_GAIN_));
-
-	// subtract background
-	fgbg_->apply(masked_, masked_, params_.FGBG_LEARNING_RATE_);
-	remove_ground();
-	std::cout << "hi" << std::endl;
+	removebg_ = remove_ground();
 
 	// apply morphological transformation
 	cv::dilate(masked_, masked_, element_, cv::Point(), params_.DILATION_ITER_);
-	std::cout << "hi" << std::endl;
 
 	// invert frame such that black pixels are foreground
 	cv::bitwise_not(masked_, masked_);
-	std::cout << "hi" << std::endl;
 
 	// apply blob detection
 	std::vector<cv::KeyPoint> keypoints;
+	std::cout << "hi" << std::endl;
 	detector_->detect(masked_, keypoints);
 	std::cout << "hi" << std::endl;
 
@@ -315,26 +245,27 @@ void Camera::detect_objects()
  * This function uses the background subtractor to subtract the history from the current frame.
  * It is implemented inside the "detect_object()" function pipeline.
  */
-void Camera::remove_ground()
+cv::Mat Camera::remove_ground()
 {
 	// declare variables
 	std::vector<std::vector<cv::Point>> contours;
 	std::vector<std::vector<cv::Point>> background_contours;
 
 	// number of iterations determines how close objects need to be to be considered background
-	cv::dilate(masked_, masked_, element_, cv::Point(), int(params_.REMOVE_GROUND_ITER_ * scale_factor_));
+	cv::dilate(masked_, masked_, element_, 
+		cv::Point(), int(params_.REMOVE_GROUND_ITER_ * scale_factor_));
 	cv::findContours(masked_, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
 	for (auto & it : contours) {
-		float circularity = (4 * M_PI * cv::contourArea(it)) / (pow(cv::arcLength(it, true), 2));
+		float circularity = 4 * M_PI * cv::contourArea(it) / (pow(cv::arcLength(it, true), 2));
 		if (circularity <= params_.BACKGROUND_CONTOUR_CIRCULARITY_) {
 			background_contours.push_back(it);
 		}
 	}
 
 	cv::Mat bg_removed = frame_.clone();
-	cv::drawContours(bg_removed, background_contours, -1, cv::Scalar(255, 0, 0), 3);
-	cv::imshow(("Remove Ground " + cam_index_), bg_removed);
+	cv::drawContours(bg_removed, background_contours, -1, cv::Scalar(0, 255, 0), 3);
+	return bg_removed;
 }
 
 /**
@@ -361,7 +292,7 @@ void Camera::detection_to_track_assignment()
 	// declare non assignment cost
 	float cost_of_non_assignment = 10 * scale_factor_;
 
-	// num of tracks and centroids, and get min and max sizes
+	// num of tracks and centroids, and get min and std::max sizes
 	int num_of_tracks = tracks_.size();
 	int num_of_centroids = centroids_.size();
 	int total_size = num_of_tracks + num_of_centroids;
@@ -452,7 +383,7 @@ void Camera::update_assigned_tracks()
 
 		cv::Point2f cen = centroids_[detection_index];
 		float size = sizes_[detection_index];
-		Track track = tracks_[track_index];
+		mcmt::Track track = tracks_[track_index];
 
 		// update kalman filter
 		track.updateKF(cen);
@@ -480,7 +411,7 @@ void Camera::update_unassigned_tracks()
 	int age_threshold = int(params_.AGE_THRESH_ * params_.VIDEO_FPS_);
 
 	for (auto & track_index : unassigned_tracks_) {
-		Track track = tracks_[track_index];
+		mcmt::Track track = tracks_[track_index];
 		track.age_++;
 		track.consecutiveInvisibleCount_++;
 		
@@ -516,7 +447,7 @@ void Camera::create_new_tracks()
 		cv::Point2f cen = centroids_[unassigned_detection];
 		float size = sizes_[unassigned_detection];
 		// initialize new track
-		Track new_track(next_id_, size, cen, params_);
+		mcmt::Track new_track(next_id_, size, cen, params_.VIDEO_FPS_, params_.SEC_FILTER_DELAY_);
 		tracks_.push_back(new_track);
 		next_id_++;
 	}
@@ -528,11 +459,11 @@ void Camera::create_new_tracks()
  * frames. it draws bounding boxes into these tracks into our camera frame to continuously 
  * identify and track the detected good tracks
  */
-std::vector<Track> Camera::filter_tracks()
+std::vector<mcmt::Track> Camera::filter_tracks()
 {
-	std::vector<Track> good_tracks;
-	int min_track_age = int(max((params_.AGE_THRESH_ * params_.VIDEO_FPS_), float(30.0)));
-	int min_visible_count = int(max((params_.VISIBILITY_THRESH_ * params_.VIDEO_FPS_), float(30.0)));
+	std::vector<mcmt::Track> good_tracks;
+	int min_track_age = int(std::max((params_.AGE_THRESH_ * params_.VIDEO_FPS_), float(30.0)));
+	int min_visible_count = int(std::max((params_.VISIBILITY_THRESH_ * params_.VIDEO_FPS_), float(30.0)));
 
 	if (tracks_.size() != 0) {
 		for (auto & track : tracks_) {
@@ -584,29 +515,4 @@ std::vector<int> Camera::apply_hungarian_algo(std::vector<std::vector<double>> &
 
 	double cost = hungAlgo.Solve(cost_matrix, assignment);
 	return assignment;
-}
-
-/**
- * This function calculates the average brightness value of the frame
- */
-int Camera::average_brightness()
-{
-	// declare and initialize required variables
-	cv::Mat hist;
-	int bins = 16;
-	float hrange[] = {0, 256};
-	const float* range = {hrange};
-	float weighted_sum = 0;
-
-	// get grayscale frame and calculate histogram
-	cv::cvtColor(frame_, gray_, cv::COLOR_BGR2GRAY);
-	cv::calcHist(&gray_, 1, 0, mask_, hist, 1, &bins, &range, true, false);
-	cv::Scalar total_sum = cv::sum(hist);
-
-	// iterate through each bin
-	for (int i=0; i < 16; i++) {
-		weighted_sum += (i * (hist.at<float>(i)));
-	}
-	
-	return int((weighted_sum/total_sum.val[0]) * (256/16));
 }

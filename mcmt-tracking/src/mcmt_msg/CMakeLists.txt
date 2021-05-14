@@ -28,6 +28,7 @@ find_package(sensor_msgs REQUIRED)
 ################################################################################
 set(msg_files
   "msg/DetectionInfo.msg"
+  "msg/RawImages.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
