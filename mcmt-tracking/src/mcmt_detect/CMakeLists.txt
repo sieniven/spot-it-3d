@@ -57,14 +57,14 @@ set(DEPENDENCIES
 target_link_libraries(${PROJECT_NAME}_lib)
 ament_target_dependencies(${PROJECT_NAME}_lib ${DEPENDENCIES})
 
-set(PERCEPTION_1_EXECUTABLE "mcmt_perception_1")
-set(PERCEPTION_2_EXECUTABLE "mcmt_perception_2")
+set(PERCEPTION_1_EXECUTABLE "mcmt_detector_1")
+set(PERCEPTION_2_EXECUTABLE "mcmt_detector_2")
 
-add_executable(${PERCEPTION_1_EXECUTABLE} src/mcmt_perception_1.cpp)
+add_executable(${PERCEPTION_1_EXECUTABLE} src/mcmt_detector_1.cpp)
 target_link_libraries(${PERCEPTION_1_EXECUTABLE} ${PROJECT_NAME}_lib)
 ament_target_dependencies(${PERCEPTION_1_EXECUTABLE} ${DEPENDENCIES})
 
-add_executable(${PERCEPTION_2_EXECUTABLE} src/mcmt_perception_2.cpp)
+add_executable(${PERCEPTION_2_EXECUTABLE} src/mcmt_detector_2.cpp)
 target_link_libraries(${PERCEPTION_2_EXECUTABLE} ${PROJECT_NAME}_lib)
 ament_target_dependencies(${PERCEPTION_2_EXECUTABLE} ${DEPENDENCIES})
 
