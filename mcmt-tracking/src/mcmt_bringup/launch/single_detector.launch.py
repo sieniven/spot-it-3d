@@ -15,7 +15,7 @@ def generate_launch_description():
 		Node(
 			package='mcmt_detect',
 			node_executable='mcmt_detector_1',
-			name='ProcessorNode1',
+			name='McmtDetectNode1',
 			output='screen',
 			emulate_tty=True,
 			parameters=[config]),
