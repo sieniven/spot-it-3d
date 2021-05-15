@@ -50,7 +50,7 @@ class McmtDetectNode : public rclcpp::Node {
 		bool is_realtime_, downsample_;
 
 		// declare tracking variables
-		std::vector<Track> tracks_, good_tracks_;
+		std::vector<std::shared_ptr<mcmt::Track>> tracks_, good_tracks_;
 		std::vector<int> dead_tracks_;
 
 		// declare detection variables
@@ -106,7 +106,6 @@ class McmtDetectNode : public rclcpp::Node {
 		void publish_info();
 
 		// declare detection and tracking functions
-		void detect_and_track();
 		void detect_objects();
 		cv::Mat remove_ground();
 		cv::Mat apply_bg_subtractions();
@@ -114,9 +113,9 @@ class McmtDetectNode : public rclcpp::Node {
 		void detection_to_track_assignment();
 		void update_assigned_tracks();
 		void update_unassigned_tracks();
-		void delete_lost_tracks();
 		void create_new_tracks();
-		std::vector<mcmt::Track> filter_tracks();
+		void delete_lost_tracks();
+		std::vector<std::shared_ptr<mcmt::Track>> filter_tracks();
 
 		// declare utility functions
 		double euclideanDist(cv::Point2f & p, cv::Point2f & q);

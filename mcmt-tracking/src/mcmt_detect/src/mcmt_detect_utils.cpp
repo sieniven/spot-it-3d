@@ -39,61 +39,71 @@ Track::Track(
 	totalVisibleCount_ = 1;
 	consecutiveInvisibleCount_ = 0;
 	is_goodtrack_ = false;
-	dcf_flag_ = true;
 	outOfSync_ = false;
 
 	// initialize centroid location
 	centroid_ = centroid;
+	predicted_ = cv::Point2f(0.0, 0.0);
 	
-	// initialize kf and DCF
-	createConstantVelocityKF(centroid_);
-	createDCF();
-}
-
-/** 
- * This function initializes openCV's Kalman Filter class. We define the 
- * KF's parameters for constant velocity model, and inputs detected target's
- * location into the KF tracker.
- */
-void Track::createConstantVelocityKF(cv::Point2f & cen)
-{
-	cv::KalmanFilter kf_(4, 2, 0);
+	// initialize kf. We define the KF's parameters for constant velocity model,
+	// and inputs detected target's location into the KF tracker.
+	kf_ = std::shared_ptr<cv::KalmanFilter>(
+		new cv::KalmanFilter(4, 2, 0, CV_32F));
 	
-	kf_.transitionMatrix = (cv::Mat_<float>(4, 4) <<
-		1, 0, 1, 0,
-		0, 1, 0, 1,
-		0, 0, 1, 0,
-		0, 0, 0, 1);
-	
-	kf_.measurementMatrix = (cv::Mat_<float>(2, 4) <<
-		1, 0, 0, 0,
-		0, 1, 0, 0);
+	// set transition matrix (F)
+	// 	1   0   1   0
+	// 	0   1   0   1
+	// 	0   0   1   0
+	// 	0   0   0   1
+	cv::setIdentity(kf_->transitionMatrix);
+	kf_->transitionMatrix.at<float>(0, 2) = 1;
+	kf_->transitionMatrix.at<float>(1, 3) = 1;
 
-	kf_.processNoiseCov = (cv::Mat_<float>(4, 4) <<
-		100, 0, 0, 0,
-		0, 100, 0, 0,
-		0, 0, 25, 0,
-		0, 0, 0, 25);
+	// set measurement matrix	(H)
+	// 	1   0   0   0
+	// 	0   1   0   0
+	kf_->measurementMatrix = cv::Mat::zeros(2, 4, CV_32F);
+	kf_->measurementMatrix.at<float>(0, 0) = 1;
+	kf_->measurementMatrix.at<float>(1, 1) = 1;
 
-	cv::setIdentity(kf_.measurementNoiseCov, cv::Scalar::all(100)); 	// R, 2x2
-	cv::setIdentity(kf_.errorCovPost, cv::Scalar::all(1));
+	// set process noise matrix (Q)
+	// 	100 0   0   0
+	// 	0   100 0   0
+	// 	0   0   25  0
+	// 	0   0   0   25
+	kf_->processNoiseCov = cv::Mat::zeros(4, 4, CV_32F);
+	kf_->processNoiseCov.at<float>(0, 0) = 100;
+	kf_->processNoiseCov.at<float>(1, 1) = 100;
+	kf_->processNoiseCov.at<float>(2, 2) = 25;
+	kf_->processNoiseCov.at<float>(3, 3) = 25;
+	// cv::setIdentity(kf_->processNoiseCov, cv::Scalar(1e-2));
 
-	int stateSize = 2;
-	cv::Mat state_(stateSize, 1, CV_32F);
+	// set measurement noise covariance matrix (R)
+	// 	100 0  
+	// 	0   100 
+	cv::setIdentity(kf_->measurementNoiseCov, cv::Scalar(100));
+
+	// set post error covariance matrix
+	// 	1   0   0   0
+	// 	0   1   0   0
+	// 	0   0   1   0
+	// 	0   0   0   1
+	cv::setIdentity(kf_->errorCovPost, cv::Scalar(1));
+
+	// set pre error covariance matrix
+	// 	1   0   0   0
+	// 	0   1   0   0
+	// 	0   0   1   0
+	// 	0   0   0   1
+	cv::setIdentity(kf_->errorCovPre, cv::Scalar(1));
 
 	// input detected centroid location
-	state_.at<float>(0) = cen.x;
-	state_.at<float>(1) = cen.y;
+	// initialize states
+	kf_->statePost.at<float>(0) = centroid_.x;
+	kf_->statePost.at<float>(1) = centroid_.y;
 
-	kf_.statePost = state_;
-}
-
-/**
- * This function initializes openCV's Discriminative Correlation Filter class. We set
- * box coordiantes at origin during the object class initialization
- */
-void Track::createDCF()
-{
+	// create DCF. we set the box coordinates at the originduring the
+	// object class initialization
 	tracker_ = cv::TrackerCSRT::create();
 	dcf_flag_ = true;
 	is_dcf_init_ = false;
@@ -104,8 +114,7 @@ void Track::createDCF()
  */
 void Track::predictKF()
 {
-	cv::Mat prediction = kf_.predict();
-	std::cout << "hihi" << prediction << std::endl;
+	cv::Mat prediction = kf_->predict();
 	predicted_.x = prediction.at<float>(0);
 	predicted_.y = prediction.at<float>(1);
 }
@@ -121,7 +130,7 @@ void Track::updateKF(cv::Point2f & measurement)
 	measure.at<float>(1) = measurement.y;
 
 	// update
-	cv::Mat prediction = kf_.correct(measure);
+	cv::Mat prediction = kf_->correct(measure);
 	centroid_.x = prediction.at<float>(0);
 	centroid_.y = prediction.at<float>(1);
 }

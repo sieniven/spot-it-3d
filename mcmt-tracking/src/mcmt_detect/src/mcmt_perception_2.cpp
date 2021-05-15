@@ -1,11 +1,13 @@
-// Pipeline to launch UVCDrivers
-// Author: Niven Sie, sieniven@gmail.com
-// 
-// This code contains the main pipeline to launch our UVCDriver.
+/**
+ * Pipeline to launch Detect Nodes
+ * Author: Niven Sie, sieniven@gmail.com 
+ * This code contains the main pipeline to launch our Detector Node for 
+ * camera 1 detection.
+ */
 
 #include <opencv2/opencv.hpp>
 #include <rclcpp/rclcpp.hpp>
-#include <mcmt_detect/mcmt_uvc_driver.hpp>
+#include <mcmt_detect/mcmt_detect_node.hpp>
 
 #include <chrono>
 #include <memory>
@@ -16,17 +18,17 @@
 
 int main(int argc, char * argv[])
 {
-	printf("Launching UVCDriver Node 2....\n");
+	printf("Launching Detector Node 2....\n");
 
 	rclcpp::init(argc, argv);
 
-	// initialize camera UVCDriver node
-	auto uvc_driver_node = std::make_shared<mcmt::McmtDetectNode>("2");
+	// initialize detector node
+	auto detect_node = std::make_shared<mcmt::McmtDetectNode>("2");
 
-	uvc_driver_node->start_record();
-	uvc_driver_node->stop_record();
+	detect_node->start_record();
+	detect_node->stop_record();
 	
-	printf("UVCDriver Node 2 interrupted. Shutting down...\n");
+	printf("Detector Node 2 interrupted. Shutting down...\n");
 	rclcpp::shutdown();
 	return 0;
 }

@@ -54,18 +54,12 @@ class Track {
 		void predictDCF(cv::Mat & frame);
 		void checkDCF(cv::Point2f & measurement, cv::Mat & frame);
 
-	private:
 		// declare kf variables
-		cv::KalmanFilter kf_;
-		cv::Mat state_;
+		std::shared_ptr<cv::KalmanFilter> kf_;
 
 		// declare dcf variables
 		cv::Ptr<cv::Tracker> tracker_;
 		cv::Rect box_;
-
-		// declare class functions
-		void createConstantVelocityKF(cv::Point2f & cen);
-		void createDCF();
 };
 }
 

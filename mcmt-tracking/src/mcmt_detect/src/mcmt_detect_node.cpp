@@ -8,13 +8,14 @@
 #include <mcmt_detect/mcmt_detect_node.hpp>
 #include <stdlib.h>
 #include <iostream>
+#include <chrono>
 #include <math.h>
 #include <memory>
 #include <algorithm>
 #include <functional>
 #include "Hungarian.h"
 
-using mcmt::McmtDetectNode;
+using namespace mcmt;
 
 McmtDetectNode::McmtDetectNode(std::string index)
 : Node("McmtDetectNode" + index)
@@ -80,11 +81,16 @@ McmtDetectNode::McmtDetectNode(std::string index)
 	detection_pub_ = this->create_publisher<mcmt_msg::msg::DetectionInfo> (topic_name_, 10);
 }
 
-// function to start video capture
+/**
+ * This is our main detection and tracking algorithm. This function takes in an image frame 
+ * that our camera gets using our openCV video capture. We run our detection algorithm 
+ * (detect_objects()) and tracking algorithm here in this pipelines.
+ */
 void McmtDetectNode::start_record()
 {
 	frame_id_ = 1;
 	while (1) {
+		auto start = std::chrono::system_clock::now();
 		// get camera frame
 		cap_ >> frame_;
 		// check if getting frame was successful
@@ -93,8 +99,49 @@ void McmtDetectNode::start_record()
 			break;
 		}
 
-		// detect and track pipeline on our image frames
-		detect_and_track();
+		// apply background subtraction
+		masked_ = apply_bg_subtractions();
+
+		// clear detection variable vectors
+		sizes_.clear();
+		centroids_.clear();
+		
+		// get detections
+		detect_objects();
+		cv::imshow(("Remove Ground " + cam_index_), removebg_);
+		
+		// apply state estimation filters
+		predict_new_locations_of_tracks();
+
+		// clear tracking variable vectors
+		assignments_.clear();
+		unassigned_tracks_.clear();
+		unassigned_detections_.clear();
+		tracks_to_be_removed_.clear();
+
+		// get cost matrix and match detections and track targets
+		detection_to_track_assignment();
+
+		// updated assigned tracks
+		update_assigned_tracks();
+
+		// update unassigned tracks, and delete lost tracks
+		update_unassigned_tracks();
+		delete_lost_tracks();
+
+		// create new tracks
+		create_new_tracks();
+
+		// convert masked to BGR
+		cv::cvtColor(masked_, masked_, cv::COLOR_GRAY2BGR);
+
+		// filter the tracks
+		good_tracks_ = filter_tracks();
+
+		// show masked and frame
+		cv::imshow(("Frame " + cam_index_), frame_);
+		cv::imshow(("Masked " + cam_index_), masked_);
+		cv::waitKey(1);
 
 		// publish detection and tracking information
 		publish_info();
@@ -103,6 +150,11 @@ void McmtDetectNode::start_record()
 		rclcpp::spin_some(node_handle_);
 
 		frame_id_++;
+		auto end = std::chrono::system_clock::now();
+		std::chrono::duration<double> elapsed_seconds = end-start;
+		std::cout << "Track num: " << tracks_.size() << std::endl;
+		std::cout << "Detection took: " << elapsed_seconds.count() << "s\n";
+
 	}
 }
 
@@ -111,67 +163,6 @@ void McmtDetectNode::stop_record()
 {
 	std::cout << "Stop capturing camera " + cam_index_ + " completed!" << std::endl;
 	cap_.release();
-}
-
-/**
- * This is our main detection and tracking algorithm. This function runs for every image frame 
- * that our camera gets using our McmtDetectNode. We run our detection algorithm (detect_objects()) 
- * and tracking algorithm here in this pipelines.
- */
-void McmtDetectNode::detect_and_track()
-{
-	std::cout << "here1" << std::endl;
-	// apply background subtraction
-	masked_ = apply_bg_subtractions();
-
-	// clear detection variable vectors
-	sizes_.clear();
-	centroids_.clear();
-	
-	std::cout << "here2" << std::endl;
-	// get detections
-	detect_objects();
-	cv::imshow(("Remove Ground " + cam_index_), removebg_);
-	
-	std::cout << "here3" << std::endl;
-	// apply state estimation filters
-	predict_new_locations_of_tracks();
-
-	// clear tracking variable vectors
-	assignments_.clear();
-	unassigned_tracks_.clear();
-	unassigned_detections_.clear();
-	tracks_to_be_removed_.clear();
-
-	std::cout << "here4" << std::endl;
-	// get cost matrix and match detections and track targets
-	detection_to_track_assignment();
-
-	std::cout << "here5" << std::endl;
-	// updated assigned tracks
-	update_assigned_tracks();
-
-	std::cout << "here6" << std::endl;
-	// update unassigned tracks, and delete lost tracks
-	update_unassigned_tracks();
-	std::cout << "here7" << std::endl;
-	delete_lost_tracks();
-
-	std::cout << "here8" << std::endl;
-	// create new tracks
-	create_new_tracks();
-
-	// convert masked to BGR
-	cv::cvtColor(masked_, masked_, cv::COLOR_GRAY2BGR);
-
-	std::cout << "here9" << std::endl;
-	// filter the tracks
-	good_tracks_ = filter_tracks();
-
-	// show masked and frame
-	cv::imshow(("Frame " + cam_index_), frame_);
-	cv::imshow(("Masked " + cam_index_), masked_);
-	cv::waitKey(1);
 }
 
 void McmtDetectNode::detect_objects()
@@ -247,10 +238,8 @@ void McmtDetectNode::predict_new_locations_of_tracks()
 {
 	for (auto & it : tracks_) {
 		// predict next location using KF and DCF
-	std::cout << "hi" << std::endl;
-		it.predictKF();
-	std::cout << "hi" << std::endl;
-		it.predictDCF(frame_);
+		it->predictKF();
+		it->predictDCF(frame_);
 	}
 }
 
@@ -279,7 +268,7 @@ void McmtDetectNode::detection_to_track_assignment()
 	// get euclidean distance of every detected centroid with each track's predicted location
 	for (auto & track : tracks_) {
 		for (auto & centroid : centroids_) {
-			cost[row_index][col_index] = euclideanDist(track.predicted_, centroid);
+			cost[row_index][col_index] = euclideanDist(track->predicted_, centroid);
 			col_index++;
 		}
 		// padding cost matrix with dummy columns to account for unassigned tracks, used to fill
@@ -356,19 +345,21 @@ void McmtDetectNode::update_assigned_tracks()
 
 		cv::Point2f cen = centroids_[detection_index];
 		float size = sizes_[detection_index];
-		mcmt::Track track = tracks_[track_index];
+		std::shared_ptr<mcmt::Track> track = tracks_[track_index];
 
 		// update kalman filter
-		track.updateKF(cen);
+		track->updateKF(cen);
+		std::cout << "hi7" << std::endl;
 
 		// update DCF
-		track.checkDCF(cen, frame_);
+		track->checkDCF(cen, frame_);
+		std::cout << "hi8" << std::endl;
 		
 		// update track info
-		track.size_ = size;
-		track.age_++;
-		track.totalVisibleCount_++;
-		track.consecutiveInvisibleCount_ = 0;
+		track->size_ = size;
+		track->age_++;
+		track->totalVisibleCount_++;
+		track->consecutiveInvisibleCount_ = 0;
 	}
 }
 
@@ -384,18 +375,35 @@ void McmtDetectNode::update_unassigned_tracks()
 	int age_threshold = int(AGE_THRESH_ * VIDEO_FPS_);
 
 	for (auto & track_index : unassigned_tracks_) {
-		mcmt::Track track = tracks_[track_index];
-		track.age_++;
-		track.consecutiveInvisibleCount_++;
+		std::shared_ptr<mcmt::Track> track = tracks_[track_index];
+		track->age_++;
+		track->consecutiveInvisibleCount_++;
 		
-		int visibility = int(track.totalVisibleCount_ / track.age_);
+		int visibility = int(track->totalVisibleCount_ / track->age_);
 
 		// if invisible for too long, append track to be removed
-		if ((track.age_ < age_threshold && visibility < VISIBILITY_RATIO_) ||
-				(track.consecutiveInvisibleCount_ >= invisible_for_too_long) ||
-				(track.outOfSync_ == true)) {
+		if ((track->age_ < age_threshold && visibility < VISIBILITY_RATIO_) ||
+				(track->consecutiveInvisibleCount_ >= invisible_for_too_long) ||
+				(track->outOfSync_ == true)) {
 			tracks_to_be_removed_.push_back(track_index);
 		}
+	}
+}
+
+/**
+ * This function creates new tracks for detections that are not assigned to any existing
+ * track. We will initialize a new Track with the location of the detection
+ */
+void McmtDetectNode::create_new_tracks()
+{
+	for (auto & unassigned_detection : unassigned_detections_) {
+		cv::Point2f cen = centroids_[unassigned_detection];
+		float size = sizes_[unassigned_detection];
+		// initialize new track
+		auto new_track = std::shared_ptr<Track>(
+			new Track(next_id_, size, cen, VIDEO_FPS_, SEC_FILTER_DELAY_));
+		tracks_.push_back(new_track);
+		next_id_++;
 	}
 }
 
@@ -411,50 +419,34 @@ void McmtDetectNode::delete_lost_tracks()
 }
 
 /**
- * This function creates new tracks for detections that are not assigned to any existing
- * track. We will initialize a new Track with the location of the detection
- */
-void McmtDetectNode::create_new_tracks()
-{
-	for (auto & unassigned_detection : unassigned_detections_) {
-		cv::Point2f cen = centroids_[unassigned_detection];
-		float size = sizes_[unassigned_detection];
-		// initialize new track
-		mcmt::Track new_track(next_id_, size, cen, VIDEO_FPS_, SEC_FILTER_DELAY_);
-		tracks_.push_back(new_track);
-		next_id_++;
-	}
-}
-
-/**
  * This function filters out good tracks to be considered for re-identification. it also
  * filters out noise and only shows tracks that are considered "good" in our output processed
  * frames. it draws bounding boxes into these tracks into our camera frame to continuously 
  * identify and track the detected good tracks
  */
-std::vector<mcmt::Track> McmtDetectNode::filter_tracks()
+std::vector<std::shared_ptr<Track>> McmtDetectNode::filter_tracks()
 {
-	std::vector<mcmt::Track> good_tracks;
+	std::vector<std::shared_ptr<Track>> good_tracks;
 	int min_track_age = int(std::max((AGE_THRESH_ * VIDEO_FPS_), float(30.0)));
 	int min_visible_count = int(std::max((VISIBILITY_THRESH_ * VIDEO_FPS_), float(30.0)));
 
 	if (tracks_.size() != 0) {
 		for (auto & track : tracks_) {
-			if (track.age_ > min_track_age && track.totalVisibleCount_ > min_visible_count) {
+			if (track->age_ > min_track_age && track->totalVisibleCount_ > min_visible_count) {
 				// requirement for track to be considered in re-identification
 				// note that min no. of frames being too small may lead to loss of continuous tracking
-				if (track.consecutiveInvisibleCount_ <= 5) {
-					track.is_goodtrack_ = true;
+				if (track->consecutiveInvisibleCount_ <= 5) {
+					track->is_goodtrack_ = true;
 					good_tracks.push_back(track);
 				}
 				
-				cv::Point2i rect_top_left((track.centroid_.x - (track.size_ / 2)), 
-																	(track.centroid_.y - (track.size_ / 2)));
+				cv::Point2i rect_top_left((track->centroid_.x - (track->size_ / 2)), 
+																	(track->centroid_.y - (track->size_ / 2)));
 				
-				cv::Point2i rect_bottom_right((track.centroid_.x + (track.size_ / 2)), 
-																			(track.centroid_.y + (track.size_ / 2)));
+				cv::Point2i rect_bottom_right((track->centroid_.x + (track->size_ / 2)), 
+																			(track->centroid_.y + (track->size_ / 2)));
 
-				if (track.consecutiveInvisibleCount_ == 0) {
+				if (track->consecutiveInvisibleCount_ == 0) {
 					// green color bounding box if track is detected in the current frame
 					cv::rectangle(frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);
 					cv::rectangle(masked_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);
@@ -646,9 +638,9 @@ void McmtDetectNode::publish_info()
 
 	// get good track's information
 	for (auto & track : good_tracks_) {
-		goodtrack_id_list.push_back(track.id_);
-		goodtrack_x_list.push_back(track.centroid_.x);
-		goodtrack_y_list.push_back(track.centroid_.y);
+		goodtrack_id_list.push_back(track->id_);
+		goodtrack_x_list.push_back(track->centroid_.x);
+		goodtrack_y_list.push_back(track->centroid_.y);
 	}
 
 	// get gone track ids
