@@ -86,7 +86,7 @@ def scalar_to_rgb(scalar_value, max_value):
     else:  # x == 5:
         return 255, 0, 255
 
-# Take in the original frame, and return a masked image that contains only the sky
+# Take in the original frame, and return two masked images: One contains the sky while the other contains non-sky components
 # This is for situations where there is bright sunlight reflecting off the drone, causing it to blend into sky
 # Increasing contrast of the whole image will detect drone but cause false positives in the background
 # Hence the sky must be extracted before a localised contrast increase can be applied to it
@@ -94,22 +94,30 @@ def scalar_to_rgb(scalar_value, max_value):
 def extract_sky(frame):
     
     # Convert image from RGB to HSV
-    masked = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
-    # Threshold the HSV image. A clear, sunlit sky has high V value (200 - 255)
-    lower = np.array([0, 0, 200])
+    # Threshold the HSV image to extract the sky. A clear, sunlit sky has high V value (200 - 255)
+    lower = np.array([0, 0, parm.SKY_THRES])
     upper = np.array([180, 255, 255])
-    masked = cv2.inRange(masked, lower, upper)
+    sky = cv2.inRange(hsv, lower, upper)
+
+    # Also extract the non-sky component
+    lower = np.array([0, 0, 0])
+    upper = np.array([180, 255, parm.SKY_THRES])
+    non_sky = cv2.inRange(hsv, lower, upper)
 
     # Morphologically open the image (erosion followed by dilation) to remove small patches of sky among the background
     # These small patches of sky may be mistaken for drones if not removed
     kernel = np.ones((5, 5), np.uint8)
-    masked = cv2.morphologyEx(masked, cv2.MORPH_OPEN, kernel, iterations=parm.DILATION_ITER)
+    sky = cv2.morphologyEx(sky, cv2.MORPH_OPEN, kernel, iterations=parm.DILATION_ITER)
     
-    # Retrieve original RGB image with filtered sky using bitwise and
-    masked = cv2.bitwise_and(frame, frame, mask=masked)
+    # Retrieve original RGB images with filtered sky using bitwise and
+    sky = cv2.bitwise_and(frame, frame, mask=sky)
+    non_sky = cv2.bitwise_and(frame, frame, mask=non_sky)
+    imshow_resized('sky', sky)
+    imshow_resized('non_sky', non_sky)
 
-    return masked
+    return sky, non_sky
 
 def remove_ground(im_in, dilation_iterations, background_contour_circularity, frame, index):
     kernel_dilation = np.ones((5, 5), np.uint8)
@@ -201,9 +209,12 @@ def setup_system_objects(scale_factor):
 # formula is im_out = alpha * im_in + beta
 # Therefore to change brightness before contrast, we need to do alpha = 1 first
 def detect_objects(frame, mask, fgbg, detector, origin, index, scale_factor):
-    if parm.SUNLIGHT_CORRECTION:
-        masked = extract_sky(frame)
+    if parm.SUN_COMPENSATION:
+        # If sun compensation is active, extract the sky and apply localised contrast increase to it
+        # And then restore the non-sky (i.e. treeline) back into the image to avoid losing data
+        masked, non_sky = extract_sky(frame)
         masked = cv2.convertScaleAbs(masked, alpha=2, beta=0)
+        masked = cv2.add(masked, non_sky)
     else:
         masked = cv2.convertScaleAbs(frame, alpha=1, beta=0)
     imshow_resized("pre-backhground subtraction", masked)

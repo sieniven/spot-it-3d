@@ -97,10 +97,13 @@ FGBG_LEARNING_RATE = 0.2
 DILATION_ITER = 2
 
 '''
-MISC PARAMETERS
+SUN COMPENSATION PARAMETERS
 '''
-# Note: Params in this category should be transferred to a more suitable category once finalised
 
-# SKY_FILTER
-# Toggle the sky filter, which is required for localised contrast increase in sky under bright sunlight conditions
-SUNLIGHT_CORRECTION = True
+# SUN_COMPENSATION
+# Toggle the sun compensation algorithm, which is required for localised contrast increase in sky under bright sunlight conditions
+SUN_COMPENSATION = True
+
+# SKY THRESOLD
+# Threshold V Value for a HSV image. If a pixel in the image has V greater than this, the pixel belongs to the sky
+SKY_THRES = 200
