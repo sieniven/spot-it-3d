@@ -100,10 +100,10 @@ DILATION_ITER = 2
 SUN COMPENSATION PARAMETERS
 '''
 
-# SUN_COMPENSATION
-# Toggle the sun compensation algorithm, which is required for localised contrast increase in sky under bright sunlight conditions
-SUN_COMPENSATION = True
+# BRIGHTNESS THRESHOLD
+# If the average HSV V Value of an image is greater than this, sun compensation will be applied
+BRIGHTNESS_THRES = 160
 
-# SKY THRESOLD
-# Threshold V Value for a HSV image. If a pixel in the image has V greater than this, the pixel belongs to the sky
+# SKY THRESHOLD
+# If a pixel in the image has HSV V value greater than this, the pixel belongs to the sky
 SKY_THRES = 200

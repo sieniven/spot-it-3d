@@ -6,7 +6,7 @@ from scipy.spatial import distance
 from scipy.optimize import linear_sum_assignment
 
 # local imported codes
-from automatic_brightness import average_brightness
+from automatic_brightness import average_brightness, average_brightness_hsv
 import parameters as parm
 
 
@@ -114,8 +114,6 @@ def extract_sky(frame):
     # Retrieve original RGB images with filtered sky using bitwise and
     sky = cv2.bitwise_and(frame, frame, mask=sky)
     non_sky = cv2.bitwise_and(frame, frame, mask=non_sky)
-    imshow_resized('sky', sky)
-    imshow_resized('non_sky', non_sky)
 
     return sky, non_sky
 
@@ -209,8 +207,8 @@ def setup_system_objects(scale_factor):
 # formula is im_out = alpha * im_in + beta
 # Therefore to change brightness before contrast, we need to do alpha = 1 first
 def detect_objects(frame, mask, fgbg, detector, origin, index, scale_factor):
-    if parm.SUN_COMPENSATION:
-        # If sun compensation is active, extract the sky and apply localised contrast increase to it
+    if average_brightness_hsv(16, frame, mask) > parm.BRIGHTNESS_THRES:
+        # If sun compensation is required, extract the sky and apply localised contrast increase to it
         # And then restore the non-sky (i.e. treeline) back into the image to avoid losing data
         masked, non_sky = extract_sky(frame)
         masked = cv2.convertScaleAbs(masked, alpha=2, beta=0)
