@@ -76,11 +76,10 @@ Track::Track(
 	kf_->processNoiseCov.at<float>(1, 1) = 100;
 	kf_->processNoiseCov.at<float>(2, 2) = 25;
 	kf_->processNoiseCov.at<float>(3, 3) = 25;
-	// cv::setIdentity(kf_->processNoiseCov, cv::Scalar(1e-2));
 
 	// set measurement noise covariance matrix (R)
-	// 	100 0  
-	// 	0   100 
+	// 	1   0  
+	// 	0   1 
 	cv::setIdentity(kf_->measurementNoiseCov, cv::Scalar(1));
 
 	// set post error covariance matrix

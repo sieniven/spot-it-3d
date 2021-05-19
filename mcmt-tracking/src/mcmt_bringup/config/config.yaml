@@ -1,7 +1,7 @@
 McmtDetectNode1:
   ros__parameters:
-    IS_REALTIME: True
-    VIDEO_INPUT: "0"
+    IS_REALTIME: False 
+    VIDEO_INPUT: "/home/niven/spot-it-3d/data/vidtest3.mp4"
     CAMERA_INDEX: "1"
     FRAME_WIDTH: 1920
     FRAME_HEIGHT: 1080
