@@ -14,7 +14,7 @@ def generate_launch_description():
 	return LaunchDescription([
 		Node(
 			package='mcmt_detect',
-			McmtDetectNode1ble='mcmt_detector_1',
+			node_executable='mcmt_detector_1',
 			name='McmtDetectNode1',
 			output='screen',
 			emulate_tty=True,
@@ -22,7 +22,7 @@ def generate_launch_description():
 		Node(
 			package='mcmt_detect',
 			node_executable='mcmt_detector_2',
-			name='McmtDetectNode1',
+			name='McmtDetectNode2',
 			output='screen',
 			emulate_tty=True,
 			parameters=[config]),

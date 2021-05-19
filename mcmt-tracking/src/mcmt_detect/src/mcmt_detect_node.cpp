@@ -152,17 +152,35 @@ void McmtDetectNode::start_record()
 		frame_id_++;
 		auto end = std::chrono::system_clock::now();
 		std::chrono::duration<double> elapsed_seconds = end-start;
-		std::cout << "Track num: " << tracks_.size() << std::endl;
+		std::cout << "Total number of tracks: " << tracks_.size() << std::endl;
 		std::cout << "Detection took: " << elapsed_seconds.count() << "s\n";
 
 	}
 }
 
-// function to stop video capture
+/**
+ *  This function to stops the video capture
+ */
 void McmtDetectNode::stop_record()
 {
 	std::cout << "Stop capturing camera " + cam_index_ + " completed!" << std::endl;
 	cap_.release();
+}
+
+/**"
+ * This function applies background subtraction to the raw image frames to obtain 
+ * thresholded mask image.
+ */
+cv::Mat McmtDetectNode::apply_bg_subtractions()
+{
+	cv::Mat masked, converted_mask;
+	cv::convertScaleAbs(frame_, masked);
+	cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness() + BRIGHTNESS_GAIN_));
+	
+	// subtract background
+	fgbg_->apply(masked, masked, FGBG_LEARNING_RATE_);
+	masked.convertTo(converted_mask, CV_8UC1);
+	return converted_mask;
 }
 
 void McmtDetectNode::detect_objects()
@@ -197,9 +215,9 @@ cv::Mat McmtDetectNode::remove_ground()
 	std::vector<std::vector<cv::Point>> background_contours;
 
 	// number of iterations determines how close objects need to be to be considered background
-	cv::dilate(masked_, masked_, element_, 
-		cv::Point(), int(REMOVE_GROUND_ITER_ * scale_factor_));
-	cv::findContours(masked_, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+	cv::Mat dilated;
+	cv::dilate(masked_, dilated, element_, cv::Point(), int(REMOVE_GROUND_ITER_ * scale_factor_));
+	cv::findContours(dilated, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
 	for (auto & it : contours) {
 		float circularity = 4 * M_PI * cv::contourArea(it) / (pow(cv::arcLength(it, true), 2));
@@ -207,27 +225,14 @@ cv::Mat McmtDetectNode::remove_ground()
 			background_contours.push_back(it);
 		}
 	}
-
+	
+	// show removed background on raw image frames
 	cv::Mat bg_removed = frame_.clone();
 	cv::drawContours(bg_removed, background_contours, -1, cv::Scalar(0, 255, 0), 3);
+
+	// draw contours on masked frame to remove background
+	cv::drawContours(masked_, background_contours, -1, cv::Scalar(0, 0, 0), -1);
 	return bg_removed;
-}
-
-/**"
- * This function applies background subtraction to the raw image frames to obtain 
- * thresholded mask image.
- */
-cv::Mat McmtDetectNode::apply_bg_subtractions()
-{
-	cv::Mat masked, converted_mask;
-	cv::convertScaleAbs(frame_, masked);
-	cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness() + BRIGHTNESS_GAIN_));
-	
-	// subtract background
-	fgbg_->apply(masked, masked, FGBG_LEARNING_RATE_);
-	masked.convertTo(converted_mask, CV_8UC1);
-
-	return converted_mask;
 }
 
 /**
@@ -349,11 +354,9 @@ void McmtDetectNode::update_assigned_tracks()
 
 		// update kalman filter
 		track->updateKF(cen);
-		std::cout << "hi7" << std::endl;
 
 		// update DCF
 		track->checkDCF(cen, frame_);
-		std::cout << "hi8" << std::endl;
 		
 		// update track info
 		track->size_ = size;
@@ -379,7 +382,7 @@ void McmtDetectNode::update_unassigned_tracks()
 		track->age_++;
 		track->consecutiveInvisibleCount_++;
 		
-		int visibility = int(track->totalVisibleCount_ / track->age_);
+		float visibility = float(track->totalVisibleCount_) / float(track->age_);
 
 		// if invisible for too long, append track to be removed
 		if ((track->age_ < age_threshold && visibility < VISIBILITY_RATIO_) ||
@@ -439,13 +442,13 @@ std::vector<std::shared_ptr<Track>> McmtDetectNode::filter_tracks()
 					track->is_goodtrack_ = true;
 					good_tracks.push_back(track);
 				}
-				
+				std::cout << track->size_ << std::endl;
 				cv::Point2i rect_top_left((track->centroid_.x - (track->size_ / 2)), 
 																	(track->centroid_.y - (track->size_ / 2)));
 				
 				cv::Point2i rect_bottom_right((track->centroid_.x + (track->size_ / 2)), 
 																			(track->centroid_.y + (track->size_ / 2)));
-
+				
 				if (track->consecutiveInvisibleCount_ == 0) {
 					// green color bounding box if track is detected in the current frame
 					cv::rectangle(frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);

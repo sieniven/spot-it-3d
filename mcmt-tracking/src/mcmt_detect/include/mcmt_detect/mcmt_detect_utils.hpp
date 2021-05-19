@@ -39,7 +39,7 @@ class Track {
 		cv::Point2f centroid_, predicted_;
 
 		// declare DCF bool variable
-		bool dcf_flag_, is_dcf_init_, outOfSync_;
+		bool is_dcf_init_, outOfSync_;
 
 		// size of detected blob
 		float size_;

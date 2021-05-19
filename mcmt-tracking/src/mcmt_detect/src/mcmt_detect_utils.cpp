@@ -81,7 +81,7 @@ Track::Track(
 	// set measurement noise covariance matrix (R)
 	// 	100 0  
 	// 	0   100 
-	cv::setIdentity(kf_->measurementNoiseCov, cv::Scalar(100));
+	cv::setIdentity(kf_->measurementNoiseCov, cv::Scalar(1));
 
 	// set post error covariance matrix
 	// 	1   0   0   0
@@ -105,7 +105,6 @@ Track::Track(
 	// create DCF. we set the box coordinates at the originduring the
 	// object class initialization
 	tracker_ = cv::TrackerCSRT::create();
-	dcf_flag_ = true;
 	is_dcf_init_ = false;
 }
 
@@ -153,22 +152,22 @@ void Track::predictDCF(cv::Mat & frame)
 void Track::checkDCF(cv::Point2f & measurement, cv::Mat & frame)
 {
 	// check if track age is sufficiently large. if it equals to the set prarameter, initialize the DCF tracker
-	if (dcf_flag_ == true) {
-		if (age_ == int(std::max((sec_filter_delay_ * vid_fps_), float(30.0)) - 1)) {
-			cv::Rect box_((measurement.x - (size_ / 2)), (measurement.y - (size_ / 2)), size_, size_);
-			tracker_->init(frame, box_);
-		}
-		// check if the measured track is not too far away from DCF predicted position. if it is too far away,
-		// we will mark it as out of sync with the DCF tracker
-		if (age_ >= int(std::max((sec_filter_delay_ * vid_fps_), float(30.0)))) {
-			if (((measurement.x < (box_.x - (1 * box_.width))) || 
-					 (measurement.x > (box_.x + (2 * box_.width)))) &&
-					((measurement.y < (box_.y - (1 * box_.height))) ||
-					 (measurement.y > (box_.y - (2 * box_.height))))) {
-				outOfSync_ = true;
-			} else {
-				outOfSync_ = false;
-			}
+	if (age_ == int(std::max((sec_filter_delay_ * vid_fps_), float(30.0)) - 1)) {
+		cv::Rect box_((measurement.x - (size_ / 2)), (measurement.y - (size_ / 2)), size_, size_);
+		tracker_->init(frame, box_);
+		is_dcf_init_ = true;
+	}
+
+	// check if the measured track is not too far away from DCF predicted position. if it is too far away,
+	// we will mark it as out of sync with the DCF tracker
+	if (age_ >= int(std::max((sec_filter_delay_ * vid_fps_), float(30.0)))) {
+		if (((measurement.x < (box_.x - (1 * box_.width))) || 
+					(measurement.x > (box_.x + (2 * box_.width)))) &&
+				((measurement.y < (box_.y - (1 * box_.height))) ||
+					(measurement.y > (box_.y - (2 * box_.height))))) {
+			outOfSync_ = true;
+		} else {
+			outOfSync_ = false;
 		}
 	}
 }

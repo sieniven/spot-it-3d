@@ -191,6 +191,7 @@ def detect_objects(frame, mask, fgbg, detector, origin, index, scale_factor):
     # Found that 0.1 - 0.3 is a good range
     masked = fgbg.apply(masked, learningRate=parm.FGBG_LEARNING_RATE)
     masked = remove_ground(masked, int(13 / (2.26 / scale_factor)), 0.5, frame, index)
+    cv2.imshow("after remove ground", masked)
 
     # Morphological Transforms
     # Close to remove black spots
@@ -206,6 +207,7 @@ def detect_objects(frame, mask, fgbg, detector, origin, index, scale_factor):
 
     # Invert frame such that black pixels are foreground
     masked = cv2.bitwise_not(masked)
+    cv2.imshow("after dilation again and inversion", masked)
 
     # Blob detection
     keypoints = detector.detect(masked)
@@ -569,6 +571,6 @@ def multi_cam_detector(camera, frame):
 
     masked = cv2.cvtColor(masked, cv2.COLOR_GRAY2BGR)
     good_tracks, frame = filter_tracks(frame, masked, camera.tracks, camera.origin)
-    # cv2.imshow(f"Masked {camera.index}", masked)
+    cv2.imshow(f"Masked {camera.index}", masked)
 
     return good_tracks, frame
