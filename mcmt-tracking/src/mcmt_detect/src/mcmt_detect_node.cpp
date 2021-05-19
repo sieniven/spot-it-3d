@@ -544,8 +544,7 @@ void McmtDetectNode::declare_parameters()
 }
 
 /**
- * This function gets the mcmt parameters from the ROS2 parameters, and
- * stores them as in our McmtParams class.
+ * This function gets the mcmt parameters from the ROS2 parameters
  */
 void McmtDetectNode::get_parameters()
 {
@@ -629,11 +628,6 @@ void McmtDetectNode::publish_info()
 	sensor_msgs::msg::Image::SharedPtr detect_img_msg = cv_bridge::CvImage(
 		header, encoding, frame_).toImageMsg();
 
-	// convert cv::Mat masked to ROS2 msg type masked
-	encoding = mat_type2encoding(masked_.type());
-	sensor_msgs::msg::Image::SharedPtr masked_msg = cv_bridge::CvImage(
-		header, encoding, masked_).toImageMsg();
-
 	std::vector<int16_t> goodtrack_id_list;
 	std::vector<int16_t> goodtrack_x_list;
 	std::vector<int16_t> goodtrack_y_list;
@@ -653,7 +647,6 @@ void McmtDetectNode::publish_info()
 
 	// get DetectionInfo message
 	dect_info.image = *detect_img_msg;
-	dect_info.masked = *masked_msg;
 	dect_info.goodtracks_id = goodtrack_id_list;
 	dect_info.goodtracks_x = goodtrack_x_list;
 	dect_info.goodtracks_y = goodtrack_y_list;
