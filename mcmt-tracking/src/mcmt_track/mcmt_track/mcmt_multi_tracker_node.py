@@ -5,15 +5,17 @@ import time
 import numpy as np
 
 # ROS2 libraries
-import rclpy
 from rclpy.node import Node
-from rclpy.parameter import Parameter
-from rclpy.clock import Clock
+
+# ROS2 message interfaces
 from sensor_msgs.msg import Image
+from message_filters import ApproximateTimeSynchronizer
+from message_filters import Subscriber
+from cv_bridge import CvBridge, CvBridgeError
+from mcmt_msg.msg import DetectionInfo
 
 # local imported code
 from mcmt_track.mcmt_track_utils import CameraTracks, TrackPlot, combine_track_plots, scalar_to_rgb
-from mcmt_track.mcmt_multi_sub_node import MultiSubNode
 
 
 class MultiTrackerNode(Node):
@@ -26,6 +28,7 @@ class MultiTrackerNode(Node):
 
 		# declare video parameters
 		self.filenames = None
+		self.bridge = CvBridge()
 
 		self.declare_mcmt_parameters()
 		self.get_mcmt_parameters()
@@ -76,8 +79,15 @@ class MultiTrackerNode(Node):
 		# prevent unused variable warning
 		self.track_pub
 
-		# initialize MultiSubNode
-		self.sub_node = MultiSubNode(self.cam_indexes)
+		# create subscribers to two camera detection info topics
+		topic_name = "mcmt/detection_info_" + self.cam_indexes[0]
+		self.detection_sub_1 = Subscriber(self, DetectionInfo, topic_name)
+		topic_name = "mcmt/detection_info_" + self.cam_indexes[1]
+		self.detection_sub_2 = Subscriber(self, DetectionInfo, topic_name)
+		
+		# create approximate synchronized subscriber to synchronize message callbacks
+		self.sync_sub = ApproximateTimeSynchronizer([self.detection_sub_1, self.detection_sub_2], 10, 0.1)
+		self.sync_sub.registerCallback(self.track_callback)
 
 
 	def declare_mcmt_parameters(self):
@@ -116,7 +126,7 @@ class MultiTrackerNode(Node):
 		self.output_csv_path_2 = self.get_parameter('OUTPUT_CSV_PATH_2').value
 
 
-	def track_callback(self):
+	def track_callback(self, msg_1, msg_2):
 		"""
 		Main pipeline for tracker node callback. Pipeline includes:
 		1.
@@ -124,18 +134,7 @@ class MultiTrackerNode(Node):
 		3.
 		"""
 		start_timer = time.time()
-		# flags to ensure detection info from both cameras are successfully subscribed
-		while (self.sub_node.FLAG_1 == False or self.sub_node.FLAG_2 == False):
-			rclpy.spin_once(self.sub_node)
-
-		# get frames
-		self.frame = [self.sub_node.frame_1, self.sub_node.frame_2]
-
-		# get good tracks
-		self.good_tracks = [self.sub_node.good_tracks_1, self.sub_node.good_tracks_2]
-
-		# get gone tracks
-		self.dead_tracks = [self.sub_node.gone_tracks_1, self.sub_node.gone_tracks_2]
+		self.process_msg_info(msg_1, msg_2)
 
 		# new entry for cumulative track lists
 		self.cumulative_tracks[0].output_log.append([])
@@ -188,8 +187,6 @@ class MultiTrackerNode(Node):
 
 		# reset sub node flags and get next frame_count
 		self.frame_count += 1
-		self.sub_node.FLAG_1 = False
-		self.sub_node.FLAG_2 = False
 
 		# show and save video combined tracking frame
 		self.combine_frame = np.hstack((self.frame[0], self.frame[1]))
@@ -198,6 +195,45 @@ class MultiTrackerNode(Node):
 		cv2.waitKey(1)
 
 	
+	def process_msg_info(self, msg_1, msg_2):
+		try:
+			frame_1 = self.bridge.imgmsg_to_cv2(msg_1.image, desired_encoding="passthrough")
+		except CvBridgeError as e:
+			print(e)
+
+		# get gone tracks id
+		gone_tracks_1 = msg_1.gonetracks_id
+
+		# get goodtracks list
+		total_num_tracks = len(msg_1.goodtracks_id)
+		good_tracks_1 = []
+		for i in range(total_num_tracks):
+			good_tracks_1.append([msg_1.goodtracks_id[i], msg_1.goodtracks_x[i], msg_1.goodtracks_y[i]])
+
+		try:
+			frame_2 = self.bridge.imgmsg_to_cv2(msg_2.image, desired_encoding="passthrough")
+		except CvBridgeError as e:
+			print(e)
+
+		# get gone tracks id
+		gone_tracks_2 = msg_2.gonetracks_id
+
+		# get goodtracks list
+		total_num_tracks = len(msg_2.goodtracks_id)
+		good_tracks_2 = []
+		for i in range(total_num_tracks):
+			good_tracks_2.append([msg_2.goodtracks_id[i], msg_2.goodtracks_x[i], msg_2.goodtracks_y[i]])
+
+		# get frames
+		self.frame = [frame_1, frame_2]
+
+		# get good tracks
+		self.good_tracks = [good_tracks_1, good_tracks_2]
+
+		# get gone tracks
+		self.dead_tracks = [gone_tracks_1, gone_tracks_2]
+
+
 	def update_cumulative_tracks(self, index):
 		"""
 		Add func description

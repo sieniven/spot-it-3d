@@ -646,6 +646,7 @@ void McmtDetectNode::publish_info()
 	}
 
 	// get DetectionInfo message
+	dect_info.header = header;
 	dect_info.image = *detect_img_msg;
 	dect_info.goodtracks_id = goodtrack_id_list;
 	dect_info.goodtracks_x = goodtrack_x_list;

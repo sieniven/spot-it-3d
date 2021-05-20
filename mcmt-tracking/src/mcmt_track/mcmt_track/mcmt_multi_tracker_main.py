@@ -16,10 +16,7 @@ def main():
 	try:
 		rclpy.init()
 		tracker = MultiTrackerNode()
-
-		while True:
-			tracker.track_callback()
-			
+		rclpy.spin(tracker)
 
 	except KeyboardInterrupt:
 		print("Saving video....")

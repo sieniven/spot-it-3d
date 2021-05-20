@@ -1,5 +1,7 @@
 # message for Detection information
 
+std_msgs/Header header
+
 sensor_msgs/Image image
 
 int16[] goodtracks_id
