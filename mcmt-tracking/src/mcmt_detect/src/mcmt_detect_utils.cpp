@@ -170,3 +170,69 @@ void Track::checkDCF(cv::Point2f & measurement, cv::Mat & frame)
 		}
 	}
 }
+
+/**
+ * This class is our Camera class for storing our detections' and tracks' variables
+ */
+Camera::Camera(
+	int index,
+	bool is_realtime,
+	std::string video_input,
+	int fps,
+	int max_frame_width,
+	int max_frame_height,
+	int fgbg_history,
+	float background_ratio,
+	int nmixtures
+)
+{
+	// get video input and camera index
+	video_input_ = video_input;
+	cam_index_ = index;
+
+	// open video capturing or video file
+	if (is_realtime == true) {
+		cap_ = cv::VideoCapture(std::stoi(video_input_));
+	} else {
+		cap_ = cv::VideoCapture(video_input_);
+	}
+
+	// get video parameters
+	frame_w_ = int(cap_.get(cv::CAP_PROP_FRAME_WIDTH));
+	frame_h_ = int(cap_.get(cv::CAP_PROP_FRAME_HEIGHT));
+	fps_ = fps;
+	scale_factor_ = (sqrt(pow(frame_w_, 2) + pow(frame_h_, 2))) / (sqrt(pow(848, 2) + pow(480, 2)));
+	aspect_ratio_ = frame_w_ / frame_h_;
+	next_id_ = 1000;
+
+	// if video frame size is too big, downsize
+	downsample_ = false;
+	if ((frame_w_ * frame_h_) > (max_frame_width * max_frame_height)) {
+		downsample_ = true;
+		frame_w_ = max_frame_width;
+		frame_h_ = int(max_frame_width / aspect_ratio_);
+		scale_factor_ = (sqrt(pow(frame_w_, 2) + pow(frame_h_, 2))) / (sqrt(pow(848, 2) + pow(480, 2)));
+	}
+
+	if (!cap_.isOpened()) {
+    std::cout << "Error: Cannot open camera! Please check!" << std::endl;
+  }
+	else {
+		std::cout << "Camera opened successful!" << std::endl;
+	}
+	cap_.set(cv::CAP_PROP_FPS, 30);
+
+	// initialize blob detector
+	cv::SimpleBlobDetector::Params blob_params;
+	blob_params.filterByConvexity = false;
+	blob_params.filterByCircularity = false;
+	detector_ = cv::SimpleBlobDetector::create(blob_params);
+
+	// initialize background subtractor
+	int hist = int(fgbg_history * fps_);
+	double varThresh = double(4 / scale_factor_);
+	bool detectShad = false;
+	fgbg_ = cv::createBackgroundSubtractorMOG2(hist, varThresh, detectShad);
+	fgbg_->setBackgroundRatio(background_ratio);
+	fgbg_->setNMixtures(nmixtures);
+}

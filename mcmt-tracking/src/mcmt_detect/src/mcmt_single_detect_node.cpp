@@ -1,11 +1,11 @@
-/** MCMT McmtDetectNode Node
+/** MCMT McmtSingleDetectNode Node
  * Author: Niven Sie, sieniven@gmail.com
  * 
- * This code contains the McmtDetectNode node class that runs our camera, and publish the 
+ * This code contains the McmtSingleDetectNode node class that runs our camera, and publish the 
  * raw frames into our ROS2 DDS-RTPS ecosystem.
  */
 
-#include <mcmt_detect/mcmt_detect_node.hpp>
+#include <mcmt_detect/mcmt_single_detect_node.hpp>
 #include <stdlib.h>
 #include <iostream>
 #include <chrono>
@@ -17,13 +17,13 @@
 
 using namespace mcmt;
 
-McmtDetectNode::McmtDetectNode(std::string index)
-: Node("McmtDetectNode" + index)
+McmtSingleDetectNode::McmtSingleDetectNode()
+: Node("McmtSingleDetectNode")
 {
 	node_handle_ = std::shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});	
 	declare_parameters();
 	get_parameters();
-	RCLCPP_INFO(this->get_logger(), "Initializing Mcmt Detector Node" + cam_index_);
+	RCLCPP_INFO(this->get_logger(), "Initializing Mcmt Detector Node");
 
 	if (is_realtime_ == true) {
 		cap_ = cv::VideoCapture(std::stoi(video_input_));
@@ -69,16 +69,16 @@ McmtDetectNode::McmtDetectNode(std::string index)
 	element_ = cv::getStructuringElement(0, cv::Size(5, 5));
 
 	if (!cap_.isOpened()) {
-    std::cout << "Error: Cannot open camera " + cam_index_ + "! Please check!" << std::endl;
+    std::cout << "Error: Cannot open camera! Please check!" << std::endl;
   }
 	else {
-		std::cout << "Camera " + cam_index_ + " opened successful!" << std::endl;
+		std::cout << "Camera opened successful!" << std::endl;
 	}
 	cap_.set(cv::CAP_PROP_FPS, 30);
 
-	// create detection info publisher with topic name "mcmt/detection_info_{proc_index}"
-	topic_name_ = "mcmt/detection_info_" + cam_index_;
-	detection_pub_ = this->create_publisher<mcmt_msg::msg::DetectionInfo> (topic_name_, 1000);
+	// create detection info publisher with topic name "mcmt/detection_info"
+	topic_name_ = "mcmt/detection_info";
+	detection_pub_ = this->create_publisher<mcmt_msg::msg::SingleDetectionInfo> (topic_name_, 1000);
 }
 
 /**
@@ -86,7 +86,7 @@ McmtDetectNode::McmtDetectNode(std::string index)
  * that our camera gets using our openCV video capture. We run our detection algorithm 
  * (detect_objects()) and tracking algorithm here in this pipelines.
  */
-void McmtDetectNode::start_record()
+void McmtSingleDetectNode::start_record()
 {
 	frame_id_ = 1;
 	while (1) {
@@ -95,7 +95,7 @@ void McmtDetectNode::start_record()
 		cap_ >> frame_;
 		// check if getting frame was successful
 		if (frame_.empty()) {
-			std::cout << "Error: Video camera " + cam_index_ + " is disconnected!" << std::endl;
+			std::cout << "Error: Video camera is disconnected!" << std::endl;
 			break;
 		}
 
@@ -108,7 +108,7 @@ void McmtDetectNode::start_record()
 		
 		// get detections
 		detect_objects();
-		cv::imshow(("Remove Ground " + cam_index_), removebg_);
+		cv::imshow("Remove Ground", removebg_);
 		
 		// apply state estimation filters
 		predict_new_locations_of_tracks();
@@ -139,14 +139,14 @@ void McmtDetectNode::start_record()
 		good_tracks_ = filter_tracks();
 
 		// show masked and frame
-		cv::imshow(("Frame " + cam_index_), frame_);
-		cv::imshow(("Masked " + cam_index_), masked_);
+		// cv::imshow("Frame", frame_);
+		cv::imshow("Masked", masked_);
 		cv::waitKey(1);
 
 		// publish detection and tracking information
 		publish_info();
 
-		//  spin the McmtDetectNode node once
+		//  spin the McmtSingleDetectNode node once
 		rclcpp::spin_some(node_handle_);
 
 		frame_id_++;
@@ -161,9 +161,9 @@ void McmtDetectNode::start_record()
 /**
  *  This function to stops the video capture
  */
-void McmtDetectNode::stop_record()
+void McmtSingleDetectNode::stop_record()
 {
-	std::cout << "Stop capturing camera " + cam_index_ + " completed!" << std::endl;
+	std::cout << "Stop capturing camera completed!" << std::endl;
 	cap_.release();
 }
 
@@ -171,7 +171,7 @@ void McmtDetectNode::stop_record()
  * This function applies background subtraction to the raw image frames to obtain 
  * thresholded mask image.
  */
-cv::Mat McmtDetectNode::apply_bg_subtractions()
+cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 {
 	cv::Mat masked, converted_mask;
 	cv::convertScaleAbs(frame_, masked);
@@ -183,7 +183,7 @@ cv::Mat McmtDetectNode::apply_bg_subtractions()
 	return converted_mask;
 }
 
-void McmtDetectNode::detect_objects()
+void McmtSingleDetectNode::detect_objects()
 {
 	removebg_ = remove_ground();
 
@@ -208,7 +208,7 @@ void McmtDetectNode::detect_objects()
  * This function uses the background subtractor to subtract the history from the current frame.
  * It is implemented inside the "detect_object()" function pipeline.
  */
-cv::Mat McmtDetectNode::remove_ground()
+cv::Mat McmtSingleDetectNode::remove_ground()
 {
 	// declare variables
 	std::vector<std::vector<cv::Point>> contours;
@@ -239,7 +239,7 @@ cv::Mat McmtDetectNode::remove_ground()
  * This function uses the kalman filter and DCF to predict new location of current tracks
  * in the next frame.
  */
-void McmtDetectNode::predict_new_locations_of_tracks()
+void McmtSingleDetectNode::predict_new_locations_of_tracks()
 {
 	for (auto & it : tracks_) {
 		// predict next location using KF and DCF
@@ -254,7 +254,7 @@ void McmtDetectNode::predict_new_locations_of_tracks()
  * away from existing tracks being designated as unassigned detections. Tracks without any
  * nearby detections are also designated as unassigned tracks
  */
-void McmtDetectNode::detection_to_track_assignment()
+void McmtSingleDetectNode::detection_to_track_assignment()
 {
 	// declare non assignment cost
 	float cost_of_non_assignment = 10 * scale_factor_;
@@ -342,7 +342,7 @@ void McmtDetectNode::detection_to_track_assignment()
  * This function processes the valid assignments of tracks and detections using the detection
  * and track indices, and updates the tracks with the matched detections
  */
-void McmtDetectNode::update_assigned_tracks()
+void McmtSingleDetectNode::update_assigned_tracks()
 {
 	for (auto & assignment : assignments_) {
 		int track_index = assignment[0];
@@ -372,7 +372,7 @@ void McmtDetectNode::update_assigned_tracks()
  * increasing their consecutive invisible count. It also gets any track that has been invisible
  * for too long, and stores them in the vector tracks_to_be_removed_
  */
-void McmtDetectNode::update_unassigned_tracks()
+void McmtSingleDetectNode::update_unassigned_tracks()
 {
 	int invisible_for_too_long = int(CONSECUTIVE_THRESH_ * VIDEO_FPS_);
 	int age_threshold = int(AGE_THRESH_ * VIDEO_FPS_);
@@ -397,7 +397,7 @@ void McmtDetectNode::update_unassigned_tracks()
  * This function creates new tracks for detections that are not assigned to any existing
  * track. We will initialize a new Track with the location of the detection
  */
-void McmtDetectNode::create_new_tracks()
+void McmtSingleDetectNode::create_new_tracks()
 {
 	for (auto & unassigned_detection : unassigned_detections_) {
 		cv::Point2f cen = centroids_[unassigned_detection];
@@ -413,7 +413,7 @@ void McmtDetectNode::create_new_tracks()
 /**
  * This function removes the tracks to be removed, in the vector tracks_to_be_removed_
  */
-void McmtDetectNode::delete_lost_tracks()
+void McmtSingleDetectNode::delete_lost_tracks()
 {
 	for (auto & track_index : tracks_to_be_removed_) {
 		dead_tracks_.push_back(track_index);
@@ -427,7 +427,7 @@ void McmtDetectNode::delete_lost_tracks()
  * frames. it draws bounding boxes into these tracks into our camera frame to continuously 
  * identify and track the detected good tracks
  */
-std::vector<std::shared_ptr<Track>> McmtDetectNode::filter_tracks()
+std::vector<std::shared_ptr<Track>> McmtSingleDetectNode::filter_tracks()
 {
 	std::vector<std::shared_ptr<Track>> good_tracks;
 	int min_track_age = int(std::max((AGE_THRESH_ * VIDEO_FPS_), float(30.0)));
@@ -467,7 +467,7 @@ std::vector<std::shared_ptr<Track>> McmtDetectNode::filter_tracks()
 /**
  * This function calculates the euclidean distance between two points
  */
-double McmtDetectNode::euclideanDist(cv::Point2f & p, cv::Point2f & q) {
+double McmtSingleDetectNode::euclideanDist(cv::Point2f & p, cv::Point2f & q) {
 	cv::Point2f diff = p - q;
 	return sqrt(diff.x*diff.x + diff.y*diff.y);
 }
@@ -476,7 +476,7 @@ double McmtDetectNode::euclideanDist(cv::Point2f & p, cv::Point2f & q) {
  * This function applies hungarian algorithm to obtain the optimal assignment for 
  * our cost matrix of tracks and detections
  */
-std::vector<int> McmtDetectNode::apply_hungarian_algo(
+std::vector<int> McmtSingleDetectNode::apply_hungarian_algo(
 	std::vector<std::vector<double>> & cost_matrix) {
 	// declare function variables
 	HungarianAlgorithm hungAlgo;
@@ -489,7 +489,7 @@ std::vector<int> McmtDetectNode::apply_hungarian_algo(
 /**
  * This function calculates the average brightness value of the frame
  */
-int McmtDetectNode::average_brightness()
+int McmtSingleDetectNode::average_brightness()
 {
 	// declare and initialize required variables
 	cv::Mat hist;
@@ -513,7 +513,7 @@ int McmtDetectNode::average_brightness()
 /**
  * This function declares our mcmt software parameters as ROS2 parameters.
  */
-void McmtDetectNode::declare_parameters()
+void McmtSingleDetectNode::declare_parameters()
 {
 	// declare ROS2 video parameters
 	this->declare_parameter("IS_REALTIME");
@@ -546,11 +546,10 @@ void McmtDetectNode::declare_parameters()
 /**
  * This function gets the mcmt parameters from the ROS2 parameters
  */
-void McmtDetectNode::get_parameters()
+void McmtSingleDetectNode::get_parameters()
 {
 	// get video parameters
 	IS_REALTIME_param = this->get_parameter("IS_REALTIME");
-	CAM_INDEX_param = this->get_parameter("CAMERA_INDEX");
 	VIDEO_INPUT_param = this->get_parameter("VIDEO_INPUT");
 	FRAME_WIDTH_param = this->get_parameter("FRAME_WIDTH");
 	FRAME_HEIGHT_param = this->get_parameter("FRAME_HEIGHT");
@@ -600,7 +599,6 @@ void McmtDetectNode::get_parameters()
 
 	// initialize video parameters
 	is_realtime_ = IS_REALTIME_param.as_bool();
-	cam_index_ = CAM_INDEX_param.as_string();
 	video_input_ = VIDEO_INPUT_param.as_string();
 }
 
@@ -610,7 +608,7 @@ void McmtDetectNode::get_parameters()
  * between cameras. We will publish information on deadtracks, good tracks 
  * and identified targets in image frames to the tracking package.
  */
-void McmtDetectNode::publish_info()
+void McmtSingleDetectNode::publish_info()
 {
 	rclcpp::Time timestamp = this->now();
 	std_msgs::msg::Header header;
@@ -621,7 +619,7 @@ void McmtDetectNode::publish_info()
 	frame_id_str = std::to_string(frame_id_);
 	header.frame_id = frame_id_str;
 
-	mcmt_msg::msg::DetectionInfo dect_info;
+	mcmt_msg::msg::SingleDetectionInfo dect_info;
 
 	// convert cv::Mat frame to ROS2 msg type frame
 	encoding = mat_type2encoding(frame_.type());
@@ -645,7 +643,7 @@ void McmtDetectNode::publish_info()
 		deadtrack_id_list.push_back(deadtrack_index);
 	}
 
-	// get DetectionInfo message
+	// get SingleDetectionInfo message
 	dect_info.header = header;
 	dect_info.image = *detect_img_msg;
 	dect_info.goodtracks_id = goodtrack_id_list;
@@ -657,7 +655,7 @@ void McmtDetectNode::publish_info()
 	detection_pub_->publish(dect_info);
 }
 
-std::string McmtDetectNode::mat_type2encoding(int mat_type)
+std::string McmtSingleDetectNode::mat_type2encoding(int mat_type)
 {
 	switch (mat_type) {
 		case CV_8UC1:
@@ -673,7 +671,7 @@ std::string McmtDetectNode::mat_type2encoding(int mat_type)
 	}
 }
 
-int McmtDetectNode::encoding2mat_type(const std::string & encoding)
+int McmtSingleDetectNode::encoding2mat_type(const std::string & encoding)
 {
 	if (encoding == "mono8") {
 		return CV_8UC1;

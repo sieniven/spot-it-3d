@@ -40,7 +40,8 @@ add_library(${PROJECT_NAME}_lib
 	"src/Hungarian.h"
 	"src/Hungarian.cpp"
   "src/mcmt_detect_utils.cpp"
-  "src/mcmt_detect_node.cpp"
+  "src/mcmt_single_detect_node.cpp"
+  "src/mcmt_multi_detect_node.cpp"
 )
 
 set(DEPENDENCIES
@@ -57,16 +58,16 @@ set(DEPENDENCIES
 target_link_libraries(${PROJECT_NAME}_lib)
 ament_target_dependencies(${PROJECT_NAME}_lib ${DEPENDENCIES})
 
-set(PERCEPTION_1_EXECUTABLE "mcmt_detector_1")
-set(PERCEPTION_2_EXECUTABLE "mcmt_detector_2")
+set(SINGLE_DETECTOR_EXECUTABLE "mcmt_single_detector")
+set(MULTI_DETECTOR_EXECUTABLE "mcmt_multi_detector")
 
-add_executable(${PERCEPTION_1_EXECUTABLE} src/mcmt_detector_1.cpp)
-target_link_libraries(${PERCEPTION_1_EXECUTABLE} ${PROJECT_NAME}_lib)
-ament_target_dependencies(${PERCEPTION_1_EXECUTABLE} ${DEPENDENCIES})
+add_executable(${SINGLE_DETECTOR_EXECUTABLE} src/mcmt_single_detector_main.cpp)
+target_link_libraries(${SINGLE_DETECTOR_EXECUTABLE} ${PROJECT_NAME}_lib)
+ament_target_dependencies(${SINGLE_DETECTOR_EXECUTABLE} ${DEPENDENCIES})
 
-add_executable(${PERCEPTION_2_EXECUTABLE} src/mcmt_detector_2.cpp)
-target_link_libraries(${PERCEPTION_2_EXECUTABLE} ${PROJECT_NAME}_lib)
-ament_target_dependencies(${PERCEPTION_2_EXECUTABLE} ${DEPENDENCIES})
+add_executable(${MULTI_DETECTOR_EXECUTABLE} src/mcmt_multi_detector_main.cpp)
+target_link_libraries(${MULTI_DETECTOR_EXECUTABLE} ${PROJECT_NAME}_lib)
+ament_target_dependencies(${MULTI_DETECTOR_EXECUTABLE} ${DEPENDENCIES})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -82,11 +83,11 @@ endif()
 ################################################################################################
 # install
 ################################################################################################
-install(TARGETS ${PERCEPTION_1_EXECUTABLE}
+install(TARGETS ${SINGLE_DETECTOR_EXECUTABLE}
   DESTINATION lib/${PROJECT_NAME}
 )
 
-install(TARGETS ${PERCEPTION_2_EXECUTABLE}
+install(TARGETS ${MULTI_DETECTOR_EXECUTABLE}
   DESTINATION lib/${PROJECT_NAME}
 )
 

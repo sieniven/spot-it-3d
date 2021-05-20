@@ -27,8 +27,8 @@ find_package(sensor_msgs REQUIRED)
 # Declare ROS messages, services and actions
 ################################################################################
 set(msg_files
-  "msg/DetectionInfo.msg"
-  "msg/RawImages.msg"
+  "msg/SingleDetectionInfo.msg"
+  "msg/MultiDetectionInfo.msg"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}

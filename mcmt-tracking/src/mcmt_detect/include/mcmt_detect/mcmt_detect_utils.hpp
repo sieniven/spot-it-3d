@@ -61,6 +61,47 @@ class Track {
 		cv::Ptr<cv::Tracker> tracker_;
 		cv::Rect box_;
 };
+
+class Camera {
+	public:
+		Camera(
+			int cam_index,
+			bool is_realtime,
+			std::string video_input,
+			int fps,
+			int max_frame_width,
+			int max_frame_height,
+			int fgbg_history,
+			float background_ratio,
+			int nmixtures
+		);
+
+		// declare video parameters
+    cv::VideoCapture cap_;
+		cv::Mat frame_, masked_, gray_, mask_, removebg_;
+		std::string video_input_;
+    int cam_index_, frame_w_, frame_h_, fps_, next_id_;
+		float scale_factor_, aspect_ratio_;
+		bool downsample_;
+
+		// declare tracking variables
+		std::vector<std::shared_ptr<mcmt::Track>> tracks_, good_tracks_;
+		std::vector<int> dead_tracks_;
+
+		// declare detection variables
+		std::vector<float> sizes_;
+		std::vector<cv::Point2f> centroids_;
+
+		// declare tracking variables
+		std::vector<int> unassigned_tracks_, unassigned_detections_;
+		// we store the matched track index and detection index in the assigments vector
+		std::vector<std::vector<int>> assignments_;
+		std::vector<int> tracks_to_be_removed_;
+
+		// declare blob detector and background subtractor
+		cv::Ptr<cv::SimpleBlobDetector> detector_;
+		cv::Ptr<cv::BackgroundSubtractorMOG2> fgbg_;
+};
 }
 
 #endif			// MCMT_DETECT_UTILS_HPP_

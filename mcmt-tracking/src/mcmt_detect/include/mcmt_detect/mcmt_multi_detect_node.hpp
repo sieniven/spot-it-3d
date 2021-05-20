@@ -5,8 +5,8 @@
  * raw frames into our ROS2 DDS-RTPS ecosystem.
  */
 
-#ifndef MCMT_UVC_DRIVER_HPP_
-#define MCMT_UVC_DRIVER_HPP_
+#ifndef MCMT_MULTI_DETECTOR_NODE_HPP_
+#define MCMT_MULTI_DETECTOR_NODE_HPP_
 
 // opencv header files
 #include <opencv2/opencv.hpp>
@@ -21,8 +21,7 @@
 
 // local header files
 #include <mcmt_detect/mcmt_detect_utils.hpp>
-#include <mcmt_msg/msg/detection_info.hpp>
-#include <mcmt_msg/msg/raw_images.hpp>
+#include <mcmt_msg/msg/multi_detection_info.hpp>
 
 #include <string>
 #include <memory>
@@ -33,43 +32,27 @@
 
 namespace mcmt 
 {
-class McmtDetectNode : public rclcpp::Node {
+class McmtMultiDetectNode : public rclcpp::Node {
   public:
-    McmtDetectNode(std::string index);
+    McmtMultiDetectNode();
 		
 		// declare node parameters
     rclcpp::Node::SharedPtr node_handle_;
-		std::string cam_index_, topic_name_;
+		std::string topic_name_;
 
-		// declare video parameters
-    cv::VideoCapture cap_;
-		cv::Mat frame_, masked_, gray_, mask_, element_, removebg_;
-		std::string video_input_;
-    int frame_w_, frame_h_, fps_, frame_id_, next_id_;
-		float scale_factor_, aspect_ratio_;
-		bool is_realtime_, downsample_;
-
-		// declare tracking variables
-		std::vector<std::shared_ptr<mcmt::Track>> tracks_, good_tracks_;
-		std::vector<int> dead_tracks_;
-
-		// declare detection variables
-		std::vector<float> sizes_;
-		std::vector<cv::Point2f> centroids_;
-
-		// declare blob detector and background subtractor
-		cv::Ptr<cv::SimpleBlobDetector> detector_;
-		cv::Ptr<cv::BackgroundSubtractorMOG2> fgbg_;
+		// declare Camera variables
+		std::vector<std::shared_ptr<mcmt::Camera>> cameras_;
+		bool is_realtime_;
+		int frame_id_;
+		std::string video_input_1_, video_input_2_;
+		cv::Mat element_;
 
 		// declare tracking variables
-		std::vector<int> origin_, unassigned_tracks_, unassigned_detections_;
-		// we store the matched track index and detection index in the assigments vector
-		std::vector<std::vector<int>> assignments_;
-		std::vector<int> tracks_to_be_removed_;
+		std::vector<int> origin_;
 
 		// declare ROS2 video parameters
-		rclcpp::Parameter IS_REALTIME_param, VIDEO_INPUT_param, FRAME_WIDTH_param, FRAME_HEIGHT_param,
-											CAM_INDEX_param, VIDEO_FPS_param, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_param;
+		rclcpp::Parameter IS_REALTIME_param, VIDEO_INPUT_1_param, VIDEO_INPUT_2_param, FRAME_WIDTH_param, 
+											FRAME_HEIGHT_param, VIDEO_FPS_param, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_param;
 
 		// declare ROS2 filter parameters
 		rclcpp::Parameter VISIBILITY_RATIO_param, VISIBILITY_THRESH_param, CONSECUTIVE_THRESH_param,
@@ -96,9 +79,7 @@ class McmtDetectNode : public rclcpp::Node {
     void stop_record();
 
   private:
-		rclcpp::Publisher<mcmt_msg::msg::DetectionInfo>::SharedPtr detection_pub_;
-
-		// declare image variables
+		rclcpp::Publisher<mcmt_msg::msg::MultiDetectionInfo>::SharedPtr detection_pub_;
 
 		// declare node functions
 		void declare_parameters();
@@ -106,24 +87,24 @@ class McmtDetectNode : public rclcpp::Node {
 		void publish_info();
 
 		// declare detection and tracking functions
-		void detect_objects();
-		cv::Mat remove_ground();
-		cv::Mat apply_bg_subtractions();
-		void predict_new_locations_of_tracks();
-		void detection_to_track_assignment();
-		void update_assigned_tracks();
-		void update_unassigned_tracks();
-		void create_new_tracks();
-		void delete_lost_tracks();
-		std::vector<std::shared_ptr<mcmt::Track>> filter_tracks();
+		void detect_objects(std::shared_ptr<mcmt::Camera> & camera);
+		cv::Mat remove_ground(std::shared_ptr<mcmt::Camera> & camera);
+		cv::Mat apply_bg_subtractions(std::shared_ptr<mcmt::Camera> & camera);
+		void predict_new_locations_of_tracks(std::shared_ptr<mcmt::Camera> & camera);
+		void detection_to_track_assignment(std::shared_ptr<mcmt::Camera> & camera);
+		void update_assigned_tracks(std::shared_ptr<mcmt::Camera> & camera);
+		void update_unassigned_tracks(std::shared_ptr<mcmt::Camera> & camera);
+		void create_new_tracks(std::shared_ptr<mcmt::Camera> & camera);
+		void delete_lost_tracks(std::shared_ptr<mcmt::Camera> & camera);
+		std::vector<std::shared_ptr<mcmt::Track>> filter_tracks(std::shared_ptr<mcmt::Camera> & camera);
 
 		// declare utility functions
 		double euclideanDist(cv::Point2f & p, cv::Point2f & q);
 		std::vector<int> apply_hungarian_algo(std::vector<std::vector<double>> & cost_matrix);
-		int average_brightness();
+		int average_brightness(std::shared_ptr<mcmt::Camera> & camera);
     std::string mat_type2encoding(int mat_type);
 		int encoding2mat_type(const std::string & encoding);
 };
 }
 
-#endif    // MCMT_UVC_DRIVER_HPP_
+#endif    // MCMT_MULTI_DETECTOR_NODE_HPP_

@@ -12,7 +12,7 @@ from sensor_msgs.msg import Image
 from message_filters import ApproximateTimeSynchronizer
 from message_filters import Subscriber
 from cv_bridge import CvBridge, CvBridgeError
-from mcmt_msg.msg import DetectionInfo
+from mcmt_msg.msg import MultiDetectionInfo
 
 # local imported code
 from mcmt_track.mcmt_track_utils import CameraTracks, TrackPlot, combine_track_plots, scalar_to_rgb
@@ -80,15 +80,12 @@ class MultiTrackerNode(Node):
 		# prevent unused variable warning
 		self.track_pub
 
-		# create subscribers to two camera detection info topics
-		topic_name = "mcmt/detection_info_" + self.cam_indexes[0]
-		self.detection_sub_1 = Subscriber(self, DetectionInfo, topic_name)
-		topic_name = "mcmt/detection_info_" + self.cam_indexes[1]
-		self.detection_sub_2 = Subscriber(self, DetectionInfo, topic_name)
-		
-		# create approximate synchronized subscriber to synchronize message callbacks
-		self.sync_sub = ApproximateTimeSynchronizer([self.detection_sub_1, self.detection_sub_2], 1000, 0.1)
-		self.sync_sub.registerCallback(self.track_callback)
+		# create subscriber to the topic name "mcmt/detection_info"
+		topic_name = "mcmt/detection_info"
+		self.detect_sub = self.create_subscription(
+			MultiDetectionInfo, topic_name, self.track_callback, 1000)
+		# prevent unused variable warning
+		self.detect_sub
 
 
 	def declare_mcmt_parameters(self):
@@ -127,7 +124,7 @@ class MultiTrackerNode(Node):
 		self.output_csv_path_2 = self.get_parameter('OUTPUT_CSV_PATH_2').value
 
 
-	def track_callback(self, msg_1, msg_2):
+	def track_callback(self, msg):
 		"""
 		Main pipeline for tracker node callback. Pipeline includes:
 		1.
@@ -135,7 +132,7 @@ class MultiTrackerNode(Node):
 		3.
 		"""
 		start_timer = time.time()
-		self.process_msg_info(msg_1, msg_2)
+		self.process_msg_info(msg)
 		print(f"Time take to get message: {time.time() - self.timer}")
 
 		# new entry for cumulative track lists
@@ -185,7 +182,7 @@ class MultiTrackerNode(Node):
 
 		# get trackplot process timer
 		end_timer = time.time()
-		# print(f"Trackplot process took: {end_timer - start_timer}")
+		print(f"Trackplot process took: {end_timer - start_timer}")
 
 		# reset sub node flags and get next frame_count
 		self.frame_count += 1
@@ -198,34 +195,34 @@ class MultiTrackerNode(Node):
 		cv2.waitKey(1)
 
 	
-	def process_msg_info(self, msg_1, msg_2):
+	def process_msg_info(self, msg):
 		try:
-			frame_1 = self.bridge.imgmsg_to_cv2(msg_1.image, desired_encoding="passthrough")
+			frame_1 = self.bridge.imgmsg_to_cv2(msg.image_one, desired_encoding="passthrough")
 		except CvBridgeError as e:
 			print(e)
 
 		# get gone tracks id
-		gone_tracks_1 = msg_1.gonetracks_id
+		gone_tracks_1 = msg.gonetracks_id_one
 
 		# get goodtracks list
-		total_num_tracks = len(msg_1.goodtracks_id)
+		total_num_tracks = len(msg.goodtracks_id_one)
 		good_tracks_1 = []
 		for i in range(total_num_tracks):
-			good_tracks_1.append([msg_1.goodtracks_id[i], msg_1.goodtracks_x[i], msg_1.goodtracks_y[i]])
+			good_tracks_1.append([msg.goodtracks_id_one[i], msg.goodtracks_x_one[i], msg.goodtracks_y_one[i]])
 
 		try:
-			frame_2 = self.bridge.imgmsg_to_cv2(msg_2.image, desired_encoding="passthrough")
+			frame_2 = self.bridge.imgmsg_to_cv2(msg.image_two, desired_encoding="passthrough")
 		except CvBridgeError as e:
 			print(e)
 
 		# get gone tracks id
-		gone_tracks_2 = msg_2.gonetracks_id
+		gone_tracks_2 = msg.gonetracks_id_two
 
 		# get goodtracks list
-		total_num_tracks = len(msg_2.goodtracks_id)
+		total_num_tracks = len(msg.goodtracks_id_two)
 		good_tracks_2 = []
 		for i in range(total_num_tracks):
-			good_tracks_2.append([msg_2.goodtracks_id[i], msg_2.goodtracks_x[i], msg_2.goodtracks_y[i]])
+			good_tracks_2.append([msg.goodtracks_id_two[i], msg.goodtracks_x_two[i], msg.goodtracks_y_two[i]])
 
 		# get frames
 		self.frame = [frame_1, frame_2]
@@ -603,7 +600,7 @@ class MultiTrackerNode(Node):
 
 	def imshow_resized_dual(self, window_name, img):
 		"""
-		Add func description
+		Function to resize and enlarge tracking frame
 		"""
 		aspect_ratio = img.shape[1] / img.shape[0]
 

@@ -11,12 +11,12 @@ from rclpy.parameter import Parameter
 from rclpy.clock import Clock
 
 # import message interface types
-from mcmt_msg.msg import DetectionInfo
+from mcmt_msg.msg import SingleDetectionInfo
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
 # local imported code
-from mcmt_track.mcmt_track_utils import CameraTracks, TrackPlot, combine_track_plots, scalar_to_rgb
+from mcmt_track.mcmt_track_utils import TrackPlot, scalar_to_rgb
 
 
 class SingleTrackerNode(Node):
@@ -29,10 +29,11 @@ class SingleTrackerNode(Node):
 		# declare video parameters
 		self.bridge = CvBridge()
 		self.index = None
+		self.timer = time.time()
 		
 		# declare and get mcmt ROS2 parameters
-		self.declare_parameter()
-		self.get_parameters()
+		self.declare_mcmt_parameters()
+		self.get_mcmt_parameters()
 		
 		# get camera parameters
 		cap = cv2.VideoCapture(self.index)
@@ -71,21 +72,21 @@ class SingleTrackerNode(Node):
 		self.font = cv2.FONT_HERSHEY_SIMPLEX
 		self.font_scale = 0.5
 
-		# create subscriber to the topic name "mcmt/detection_info_{cam_index}"
-		topic_name = "mcmt/detection_info_" + self.cam_index
+		# create subscriber to the topic name "mcmt/detection_info"
+		topic_name = "mcmt/detection_info"
 		self.detect_sub = self.create_subscription(
-			DetectionInfo, topic_name, self.track_callback, 10)
+			SingleDetectionInfo, topic_name, self.track_callback, 10)
 		# prevent unused variable warning
 		self.detect_sub
 
-		# create publisher to the topic name "mcmt/track_image_{cam_index}"
+		# create publisher to the topic name "mcmt/track_image"
 		topic_name = "mcmt/track_image"
-		self.track_pub = self.create_publisher(Image, topic_name, 10)
+		self.track_pub = self.create_publisher(Image, topic_name, 1000)
 		# prevent unused variable warning
 		self.track_pub
 
 	
-	def get_parameters(self):
+	def declare_mcmt_parameters(self):
 		"""
 		This function declares our mcmt software parameters as ROS2 parameters
 		"""
@@ -98,13 +99,12 @@ class SingleTrackerNode(Node):
 		self.declare_parameter('OUTPUT_CSV_PATH')
 
 
-	def get_parameters(self):
+	def get_mcmt_parameters(self):
 		"""
 		This function gets the mcmt parameters from the ROS2 paramters
 		"""
 		# get camera parameters
 		self.is_realtime = self.get_parameter('IS_REALTIME').value
-		self.cam_index = self.get_parameter('CAMERA_INDEX').value
 		
 		if self.is_realtime:
 			self.index = int(self.get_parameter('VIDEO_INPUT').value)
@@ -134,6 +134,7 @@ class SingleTrackerNode(Node):
 		self.good_tracks = []
 		for i in range(self.total_num_tracks):
 			self.good_tracks.append([msg.goodtracks_id[i], msg.goodtracks_x[i], msg.goodtracks_y[i]])
+		print(f"Time take to get message: {time.time() - self.timer}")
 
 		# get track feature variable for each track
 		for track in self.good_tracks:
@@ -171,6 +172,18 @@ class SingleTrackerNode(Node):
 
 		# show and save video tracking frame
 		self.frame_count += 1
+		self.imshow_resized_dual("Detection", self.frame)
 		self.recording.write(self.frame)
-		cv2.imshow(f"Detection {self.index}", self.frame)
+		self.timer = time.time()
 		cv2.waitKey(1)
+
+	
+	def imshow_resized_dual(self, window_name, img):
+		"""
+		Function to resize and enlarge tracking frame
+		"""
+		aspect_ratio = img.shape[1] / img.shape[0]
+
+		window_size = (int(1280), int(1280 / aspect_ratio))
+		img = cv2.resize(img, window_size, interpolation=cv2.INTER_CUBIC)
+		cv2.imshow(window_name, img)

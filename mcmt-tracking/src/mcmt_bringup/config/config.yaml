@@ -1,8 +1,7 @@
-McmtDetectNode1:
+McmtSingleDetectNode:
   ros__parameters:
     IS_REALTIME: True
     VIDEO_INPUT: "0"
-    CAMERA_INDEX: "1"
     FRAME_WIDTH: 1920
     FRAME_HEIGHT: 1080
     VIDEO_FPS: 30
@@ -22,11 +21,11 @@ McmtDetectNode1:
     REMOVE_GROUND_ITER: 5.75
     BACKGROUND_CONTOUR_CIRCULARITY: 0.5
 
-McmtDetectNode2:
+McmtMultiDetectNode:
   ros__parameters:
     IS_REALTIME: True
-    VIDEO_INPUT: "2"
-    CAMERA_INDEX: "2"
+    VIDEO_INPUT_1: "0"
+    VIDEO_INPUT_2: "2"
     FRAME_WIDTH: 1920
     FRAME_HEIGHT: 1080
     VIDEO_FPS: 30
@@ -50,7 +49,6 @@ SingleTrackerNode:
   ros__parameters:
     IS_REALTIME: True
     VIDEO_INPUT: "0"
-    CAMERA_INDEX: "1"
     FRAME_WIDTH: 1920
     FRAME_HEIGHT: 1080
     OUTPUT_VIDEO_PATH: "/home/niven/spot-it-3d/data/video_plot.mp4"
