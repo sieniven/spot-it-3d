@@ -78,7 +78,7 @@ McmtDetectNode::McmtDetectNode(std::string index)
 
 	// create detection info publisher with topic name "mcmt/detection_info_{proc_index}"
 	topic_name_ = "mcmt/detection_info_" + cam_index_;
-	detection_pub_ = this->create_publisher<mcmt_msg::msg::DetectionInfo> (topic_name_, 10);
+	detection_pub_ = this->create_publisher<mcmt_msg::msg::DetectionInfo> (topic_name_, 1000);
 }
 
 /**

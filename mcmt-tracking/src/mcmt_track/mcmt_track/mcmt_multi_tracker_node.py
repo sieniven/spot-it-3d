@@ -56,6 +56,7 @@ class MultiTrackerNode(Node):
 		self.frame = [None, None]
 		self.dead_tracks = [None, None]
 		self.frame_count = 0
+		self.timer = time.time()
 
 		# tracking variables
 		self.next_id = 0
@@ -86,7 +87,7 @@ class MultiTrackerNode(Node):
 		self.detection_sub_2 = Subscriber(self, DetectionInfo, topic_name)
 		
 		# create approximate synchronized subscriber to synchronize message callbacks
-		self.sync_sub = ApproximateTimeSynchronizer([self.detection_sub_1, self.detection_sub_2], 10, 0.1)
+		self.sync_sub = ApproximateTimeSynchronizer([self.detection_sub_1, self.detection_sub_2], 1000, 0.1)
 		self.sync_sub.registerCallback(self.track_callback)
 
 
@@ -135,6 +136,7 @@ class MultiTrackerNode(Node):
 		"""
 		start_timer = time.time()
 		self.process_msg_info(msg_1, msg_2)
+		print(f"Time take to get message: {time.time() - self.timer}")
 
 		# new entry for cumulative track lists
 		self.cumulative_tracks[0].output_log.append([])
@@ -183,7 +185,7 @@ class MultiTrackerNode(Node):
 
 		# get trackplot process timer
 		end_timer = time.time()
-		print(f"Trackplot process took: {end_timer - start_timer}")
+		# print(f"Trackplot process took: {end_timer - start_timer}")
 
 		# reset sub node flags and get next frame_count
 		self.frame_count += 1
@@ -192,6 +194,7 @@ class MultiTrackerNode(Node):
 		self.combine_frame = np.hstack((self.frame[0], self.frame[1]))
 		self.imshow_resized_dual("Detection", self.combine_frame)
 		self.recording.write(self.combine_frame)
+		self.timer = time.time()
 		cv2.waitKey(1)
 
 	
