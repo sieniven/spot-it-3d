@@ -13,9 +13,9 @@ def generate_launch_description():
 
 	return LaunchDescription([
 		Node(
-			package='mcmt_detect',
-			node_executable='mcmt_perception_1',
-			name='UVCDriverNode1',
+			package='mcmt_track',
+			node_executable='mcmt_single_tracker',
+			name='MultiTrackerNode',
 			output='screen',
 			emulate_tty=True,
 			parameters=[config]),

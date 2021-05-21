@@ -1,14 +1,7 @@
-UVCDriverNode1:
+McmtSingleDetectNode:
   ros__parameters:
     IS_REALTIME: True
     VIDEO_INPUT: "0"
-    CAMERA_INDEX: "1"
-
-ProcessorNode1:
-  ros__parameters:
-    IS_REALTIME: True
-    VIDEO_INPUT: "0"
-    CAMERA_INDEX: "1"
     FRAME_WIDTH: 1920
     FRAME_HEIGHT: 1080
     VIDEO_FPS: 30
@@ -28,17 +21,11 @@ ProcessorNode1:
     REMOVE_GROUND_ITER: 5.75
     BACKGROUND_CONTOUR_CIRCULARITY: 0.5
 
-UVCDriverNode2:
+McmtMultiDetectNode:
   ros__parameters:
     IS_REALTIME: True
-    VIDEO_INPUT: "2"
-    CAMERA_INDEX: "2"
-
-ProcessorNode2:
-  ros__parameters:
-    IS_REALTIME: True
-    VIDEO_INPUT: "2"
-    CAMERA_INDEX: "2"
+    VIDEO_INPUT_1: "0"
+    VIDEO_INPUT_2: "2"
     FRAME_WIDTH: 1920
     FRAME_HEIGHT: 1080
     VIDEO_FPS: 30
@@ -57,3 +44,25 @@ ProcessorNode2:
     DILATION_ITER: 2
     REMOVE_GROUND_ITER: 5.75
     BACKGROUND_CONTOUR_CIRCULARITY: 0.5
+
+SingleTrackerNode:
+  ros__parameters:
+    IS_REALTIME: True
+    VIDEO_INPUT: "0"
+    FRAME_WIDTH: 1920
+    FRAME_HEIGHT: 1080
+    OUTPUT_VIDEO_PATH: "/home/niven/spot-it-3d/data/video_plot.mp4"
+    OUTPUT_CSV_PATH: "/home/niven/spot-it-3d/data/data_out.csv"
+
+MultiTrackerNode:
+  ros__parameters:
+    IS_REALTIME: True
+    VIDEO_INPUT_1: "0"
+    VIDEO_INPUT_2: "2"
+    CAMERA_INDEX_1: "1"
+    CAMERA_INDEX_2: "2"
+    FRAME_WIDTH: 1920
+    FRAME_HEIGHT: 1080
+    OUTPUT_VIDEO_PATH: "/home/niven/spot-it-3d/data/video_plot.mp4"
+    OUTPUT_CSV_PATH_1: "/home/niven/spot-it-3d/data/data_out_0.csv"
+    OUTPUT_CSV_PATH_2: "/home/niven/spot-it-3d/data/data_out_0.csv"

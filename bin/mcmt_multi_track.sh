@@ -7,5 +7,5 @@ source "/opt/ros/eloquent/setup.bash"
 # colcon build ros2 packages
 source "../mcmt-tracking/install/setup.bash"
 
-# run single camera ROS2 launch
-ros2 launch mcmt_bringup single_camera.launch.py
+# run multi detector ROS2 launch
+ros2 launch mcmt_bringup multi_tracker.launch.py
