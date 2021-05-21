@@ -59,7 +59,7 @@ class Track {
 
 		// declare dcf variables
 		cv::Ptr<cv::Tracker> tracker_;
-		cv::Rect box_;
+		cv::Rect2d box_;
 };
 
 class Camera {
