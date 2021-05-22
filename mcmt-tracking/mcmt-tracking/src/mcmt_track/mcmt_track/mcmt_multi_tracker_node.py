@@ -151,16 +151,14 @@ class MultiTrackerNode(Node):
 
 		self.calculate_3D()
 
-		frame_count += 1
-
 		# plotting track plot trajectories into frame
 		for frame in range(2):
 
 			cv2.putText(self.frame[frame], f"CAMERA {frame}",
-									(50,50), self.font, self.font_scale * 2, (255, 0, 0), 2, cv2.LINE_AA)
+									(20,30), self.font, self.font_scale * 0.85, (255, 0, 0), 2, cv2.LINE_AA)
 
-			cv2.putText(self.frame[frame], f"Frame Count: {frame_count}",
-									(50,80), self.font, self.font_scale * 2, (255, 0, 0), 2, cv2.LINE_AA)
+			cv2.putText(self.frame[frame], f"Frame Count: {self.frame_count}",
+									(20,50), self.font, self.font_scale * 0.85, (255, 0, 0), 2, cv2.LINE_AA)
 
 			for track_plot in self.cumulative_tracks[frame].track_plots.values():
 				if (self.frame_count - track_plot.lastSeen) <= self.fps:
@@ -249,13 +247,14 @@ class MultiTrackerNode(Node):
 		"""
 		for track in self.good_tracks[index]:
 			track_id = track[0]
-			centroid_x, centroid_y = track[3]
+			centroid_x = track[1]
+			centroid_y = track[2]
 			self.cumulative_tracks[index].output_log[self.frame_count].extend([track_id, centroid_x, centroid_y])
 
-            # occurance of a new track
+			# occurance of a new track
 			if track_id not in self.matching_dict[index]:
 				self.cumulative_tracks[index].track_new_plots[track_id] = TrackPlot(track_id)
-            	self.matching_dict[index][track_id] = track_id
+				self.matching_dict[index][track_id] = track_id
 
 
 	def process_new_tracks(self, index, alt):
@@ -266,7 +265,7 @@ class MultiTrackerNode(Node):
 		corrValues = {}
 		removeSet = set()
 		
-		self.row = 0
+		row = 0
 
 		for track in self.good_tracks[index]:
 			# Extract details from the track
@@ -295,7 +294,7 @@ class MultiTrackerNode(Node):
 							score = self.compute_matching_score(track_plot, alt_track_plot, index, alt)
 
 							if score != 0:
-								self.corrValues[track_id][alt_track_plot.id] = score
+								corrValues[track_id][alt_track_plot.id] = score
 
 					# look into other camera's matched tracks list (old tracks last)
 					for alt_track_plot in self.cumulative_tracks[alt].track_plots.values():
@@ -319,7 +318,7 @@ class MultiTrackerNode(Node):
 							score = self.compute_matching_score(track_plot, alt_track_plot, index, alt)
 
 							if score != 0:
-								self.corrValues[track_id][alt_track_plot.id] = score
+								corrValues[track_id][alt_track_plot.id] = score
 
 				row += 1
 
@@ -428,50 +427,50 @@ class MultiTrackerNode(Node):
 			track_plot.track_feature_variable)))
 
 	def compute_matching_score(self, track_plot, alt_track_plot, index, alt):
-        
-        # normalization of cross correlation values
+		
+		# normalization of cross correlation values
 		track_plot_normalize_xj = self.normalise_track_plot(track_plot)
 		alt_track_plot_normalize_xj = self.normalise_track_plot(alt_track_plot)
 
-        # updating of tracks in the local neighbourhood
+		# updating of tracks in the local neighbourhood
 		track_plot.update_other_tracks(self.cumulative_tracks[index])
 		alt_track_plot.update_other_tracks(self.cumulative_tracks[alt])
 
-        # track feature variable correlation strength
+		# track feature variable correlation strength
 		r_value = max(np.correlate(track_plot_normalize_xj,
-                                    alt_track_plot_normalize_xj, mode='full'))
+									alt_track_plot_normalize_xj, mode='full'))
 
-        # geometric track matching strength value
+		# geometric track matching strength value
 		geometric_strength = self.geometric_similarity(track_plot.other_tracks, alt_track_plot.other_tracks)
 
-        # heading deviation error score
+		# heading deviation error score
 		heading_err = self.heading_error_relative(track_plot, alt_track_plot)
 
 		if r_value > 0.5 and (geometric_strength == 0 or geometric_strength >= 2) and heading_err < 0.05:
 			return r_value * (1 - heading_err)
 		else:
 			return 0
-            
+			
 	def geometric_similarity(self, other_tracks_0, other_tracks_1):
-        
+		
 		relative_strength = 0
 		count = 0
 		for a_polar in other_tracks_0:
 			(a_angle, a_dist) = a_polar
 			for b_polar in other_tracks_1:
 				(b_angle, b_dist) = b_polar
-                
-                delta_angle = (a_angle - b_angle) / (2 * math.pi)
-                angle_factor = 1 / (delta_angle * delta_angle) 
-                dist_factor = min(a_dist, b_dist) / max(a_dist, b_dist)
+				
+				delta_angle = (a_angle - b_angle) / (2 * math.pi)
+				angle_factor = 1 / (delta_angle * delta_angle) 
+				dist_factor = min(a_dist, b_dist) / max(a_dist, b_dist)
 
-                if (a_dist < 500 and b_dist < 500):
-                    relative_strength += angle_factor * pow(dist_factor, 4)
-                else:
-                    relative_strength += angle_factor * pow(dist_factor, 4) * (100 / (max(a_dist, b_dist) - 400))
-                
-                count += 1
-        
+				if (a_dist < 500 and b_dist < 500):
+					relative_strength += angle_factor * pow(dist_factor, 4)
+				else:
+					relative_strength += angle_factor * pow(dist_factor, 4) * (100 / (max(a_dist, b_dist) - 400))
+				
+				count += 1
+		
 		if count > 0:
 			return math.log(relative_strength / count, 10)
 		else:
