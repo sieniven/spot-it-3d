@@ -80,7 +80,7 @@ class McmtSingleDetectNode : public rclcpp::Node {
 											BACKGROUND_CONTOUR_CIRCULARITY_param; 
 
 		// declare ROS2 sun compemsation parameters
-		rclcpp::Parameter BRIGHTNESS_THRES_param, SKY_THRES_param;
+		rclcpp::Parameter BRIGHTNESS_THRES_param, SKY_THRES_param, SUN_CONTRAST_GAIN_param, SUN_BRIGHTNESS_GAIN_param;
 		
 		// declare video parameters
 		int FRAME_WIDTH_, FRAME_HEIGHT_, VIDEO_FPS_, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_;
@@ -94,7 +94,7 @@ class McmtSingleDetectNode : public rclcpp::Node {
 		float BACKGROUND_RATIO_, FGBG_LEARNING_RATE_, REMOVE_GROUND_ITER_, BACKGROUND_CONTOUR_CIRCULARITY_;
 
 		// declare sun compensation parameters
-		int BRIGHTNESS_THRES, SKY_THRES;
+		int BRIGHTNESS_THRES, SKY_THRES, SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN;
 
 		// detector functions
 		void start_record();

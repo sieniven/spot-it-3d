@@ -22,6 +22,8 @@ McmtSingleDetectNode:
     BACKGROUND_CONTOUR_CIRCULARITY: 0.5
     BRIGHTNESS_THRES: 160
     SKY_THRES: 200
+    SUN_CONTRAST_GAIN: 2
+    SUN_BRIGHTNESS_GAIN: 0
 
 
 McmtMultiDetectNode:
@@ -49,6 +51,8 @@ McmtMultiDetectNode:
     BACKGROUND_CONTOUR_CIRCULARITY: 0.5
     BRIGHTNESS_THRES: 160
     SKY_THRES: 200
+    SUN_CONTRAST_GAIN: 2
+    SUN_BRIGHTNESS_GAIN: 0
 
 SingleTrackerNode:
   ros__parameters:

@@ -182,7 +182,7 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 	// The "non-sky" parts are then restored back to the frame for subsequent masking operations
 	if (average_brightness(cv::COLOR_BGR2HSV, 2) > BRIGHTNESS_THRES) {
 		extract_sky();
-		cv::convertScaleAbs(sky_, sky_, 2);
+		cv::convertScaleAbs(sky_, sky_, SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
 		cv::add(sky_, non_sky_, masked);
 		// Resest the sky and non-sky for future iterations
 		sky_ = cv::Scalar(0,0,0);
@@ -598,6 +598,8 @@ void McmtSingleDetectNode::declare_parameters()
 	// declare sun compensation parameters
 	this->declare_parameter("BRIGHTNESS_THRES");
 	this->declare_parameter("SKY_THRES");
+	this->declare_parameter("SUN_CONTRAST_GAIN");
+	this->declare_parameter("SUN_BRIGHTNESS_GAIN");
 }
 
 /**
@@ -636,6 +638,8 @@ void McmtSingleDetectNode::get_parameters()
 	// get sun compensation params
 	BRIGHTNESS_THRES_param = this->get_parameter("BRIGHTNESS_THRES");
 	SKY_THRES_param = this->get_parameter("SKY_THRES");
+	SUN_CONTRAST_GAIN_param = this->get_parameter("SUN_CONTRAST_GAIN");
+	SUN_BRIGHTNESS_GAIN_param = this->get_parameter("SUN_BRIGHTNESS_GAIN");
 
 	// initialize and get the parameter values
 	FRAME_WIDTH_ = FRAME_WIDTH_param.as_int(),
@@ -659,6 +663,8 @@ void McmtSingleDetectNode::get_parameters()
 	BACKGROUND_CONTOUR_CIRCULARITY_ = BACKGROUND_CONTOUR_CIRCULARITY_param.as_double();
 	BRIGHTNESS_THRES = BRIGHTNESS_THRES_param.as_int();
 	SKY_THRES = SKY_THRES_param.as_int();
+	SUN_CONTRAST_GAIN = SUN_CONTRAST_GAIN_param.as_int();
+	SUN_BRIGHTNESS_GAIN = SUN_BRIGHTNESS_GAIN_param.as_int();
 
 	// initialize video parameters
 	is_realtime_ = IS_REALTIME_param.as_bool();
