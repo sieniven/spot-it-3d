@@ -63,6 +63,9 @@ class McmtMultiDetectNode : public rclcpp::Node {
 											FGBG_LEARNING_RATE_param, DILATION_ITER_param, REMOVE_GROUND_ITER_param, 
 											BACKGROUND_CONTOUR_CIRCULARITY_param; 
 
+		// declare ROS2 sun compemsation parameters
+		rclcpp::Parameter BRIGHTNESS_THRES_param, SKY_THRES_param;
+		
 		// declare video parameters
 		int FRAME_WIDTH_, FRAME_HEIGHT_, VIDEO_FPS_, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_;
 
@@ -73,6 +76,9 @@ class McmtMultiDetectNode : public rclcpp::Node {
 		// declare background subtractor parameters
 		int FGBG_HISTORY_, NMIXTURES_, BRIGHTNESS_GAIN_, DILATION_ITER_;
 		float BACKGROUND_RATIO_, FGBG_LEARNING_RATE_, REMOVE_GROUND_ITER_, BACKGROUND_CONTOUR_CIRCULARITY_;
+
+		// declare sun compensation parameters
+		int BRIGHTNESS_THRES, SKY_THRES;
 
 		// detector functions
 		void start_record();
@@ -90,6 +96,7 @@ class McmtMultiDetectNode : public rclcpp::Node {
 		void detect_objects(std::shared_ptr<mcmt::Camera> & camera);
 		cv::Mat remove_ground(std::shared_ptr<mcmt::Camera> & camera);
 		cv::Mat apply_bg_subtractions(std::shared_ptr<mcmt::Camera> & camera);
+		void extract_sky(std::shared_ptr<mcmt::Camera> & camera);
 		void predict_new_locations_of_tracks(std::shared_ptr<mcmt::Camera> & camera);
 		void detection_to_track_assignment(std::shared_ptr<mcmt::Camera> & camera);
 		void update_assigned_tracks(std::shared_ptr<mcmt::Camera> & camera);
@@ -101,7 +108,8 @@ class McmtMultiDetectNode : public rclcpp::Node {
 		// declare utility functions
 		double euclideanDist(cv::Point2f & p, cv::Point2f & q);
 		std::vector<int> apply_hungarian_algo(std::vector<std::vector<double>> & cost_matrix);
-		int average_brightness(std::shared_ptr<mcmt::Camera> & camera);
+		int average_brightness(std::shared_ptr<mcmt::Camera> & camera,
+			cv::ColorConversionCodes colortype, int channel);
     std::string mat_type2encoding(int mat_type);
 		int encoding2mat_type(const std::string & encoding);
 };
