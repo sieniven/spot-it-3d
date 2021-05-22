@@ -127,9 +127,9 @@ class MultiTrackerNode(Node):
 	def track_callback(self, msg):
 		"""
 		Main pipeline for tracker node callback. Pipeline includes:
-		1.
-		2.
-		3.
+		1. Processing of new tracks
+		2. Re-identification between tracks
+		3. Plotting of info on each camera's frames
 		"""
 		start_timer = time.time()
 		self.process_msg_info(msg)
@@ -151,8 +151,17 @@ class MultiTrackerNode(Node):
 
 		self.calculate_3D()
 
+		frame_count += 1
+
 		# plotting track plot trajectories into frame
 		for frame in range(2):
+
+			cv2.putText(self.frame[frame], f"CAMERA {frame}",
+									(50,50), self.font, self.font_scale * 2, (255, 0, 0), 2, cv2.LINE_AA)
+
+			cv2.putText(self.frame[frame], f"Frame Count: {frame_count}",
+									(50,80), self.font, self.font_scale * 2, (255, 0, 0), 2, cv2.LINE_AA)
+
 			for track_plot in self.cumulative_tracks[frame].track_plots.values():
 				if (self.frame_count - track_plot.lastSeen) <= self.fps:
 					shown_indexes = np.where(np.logical_and(track_plot.frameNos > self.frame_count - self.plot_history,
@@ -236,32 +245,28 @@ class MultiTrackerNode(Node):
 
 	def update_cumulative_tracks(self, index):
 		"""
-		Add func description
+		Creation of new tracks and the addition to the cumulative tracks log for each frame.
 		"""
 		for track in self.good_tracks[index]:
 			track_id = track[0]
-			centroid_x = track[1]
-			centroid_y = track[2]
+			centroid_x, centroid_y = track[3]
 			self.cumulative_tracks[index].output_log[self.frame_count].extend([track_id, centroid_x, centroid_y])
 
-			# occurance of a new track
-			if track_id not in self.cumulative_tracks[index].track_plots_ids and track_id not in self.matching_dict[index]:
+            # occurance of a new track
+			if track_id not in self.matching_dict[index]:
 				self.cumulative_tracks[index].track_new_plots[track_id] = TrackPlot(track_id)
-				self.matching_dict[index][track_id] = track_id
+            	self.matching_dict[index][track_id] = track_id
 
 
 	def process_new_tracks(self, index, alt):
 		"""
-		Add func description
+		Main re-identification pipeline. Checks first between mutually new tracks, then new tracks with old, widowed tracks.
 		"""
 		self.get_total_number_of_tracks()
 		corrValues = {}
 		removeSet = set()
 		
-		"""
-		METHOD 1: Track Feature Variable (best for low #)
-		"""
-		row = 0
+		self.row = 0
 
 		for track in self.good_tracks[index]:
 			# Extract details from the track
@@ -278,27 +283,19 @@ class MultiTrackerNode(Node):
 				track_plot.calculate_track_feature_variable(self.frame_count, self.fps)
 
 				# if track is not a new track, we use 90 frames as the minimum requirement before matching occurs
-				if track_plot.frameNos.size >= 90 and track_plot.track_feature_variable.size >= 90 and (
+				if track_plot.frameNos.size >= 30 and track_plot.track_feature_variable.size >= 30 and (
 						math.sqrt(np.sum(np.square(track_plot.track_feature_variable)))) != 0:
-					
-					# normalization of cross correlation value
-					track_plot_normalize_xj = self.normalise_track_plot(track_plot)
-					# track_plot.update_other_tracks(self.good_tracks[index])
 
 					# look into 2nd camera's new tracks (new tracks first)
 					for alt_track_plot in self.cumulative_tracks[alt].track_new_plots.values():
 						# track in 2nd camera must fulfills requirements to have at least 90 frames to match
-						if alt_track_plot.frameNos.size >= 90 and alt_track_plot.track_feature_variable.size >= 90 and (
+						if alt_track_plot.frameNos.size >= 30 and alt_track_plot.track_feature_variable.size >= 30 and (
 								math.sqrt(np.sum(np.square(alt_track_plot.track_feature_variable)))) != 0:
 							
-							# normalization of cross correlation value
-							alt_track_plot_normalize_xj = self.normalise_track_plot(alt_track_plot)
+							score = self.compute_matching_score(track_plot, alt_track_plot, index, alt)
 
-							r_value = max(np.correlate(track_plot_normalize_xj,
-														alt_track_plot_normalize_xj, mode='full'))
-
-							if r_value > 0.7:
-								corrValues[track_id][alt_track_plot.id] = r_value
+							if score != 0:
+								self.corrValues[track_id][alt_track_plot.id] = score
 
 					# look into other camera's matched tracks list (old tracks last)
 					for alt_track_plot in self.cumulative_tracks[alt].track_plots.values():
@@ -319,14 +316,10 @@ class MultiTrackerNode(Node):
 
 						if eligibility_flag is True and (math.sqrt(np.sum(np.square(alt_track_plot.track_feature_variable)))) != 0:
 
-							
-							alt_track_plot_normalize_xj = self.normalise_track_plot(alt_track_plot)
-							
-							r_value = max(np.correlate(track_plot_normalize_xj,
-														alt_track_plot_normalize_xj, mode='full'))
+							score = self.compute_matching_score(track_plot, alt_track_plot, index, alt)
 
-							if r_value > 0.7:
-								corrValues[track_id][alt_track_plot.id] = r_value
+							if score != 0:
+								self.corrValues[track_id][alt_track_plot.id] = score
 
 				row += 1
 
@@ -337,84 +330,6 @@ class MultiTrackerNode(Node):
 				track_plot.calculate_track_feature_variable(self.frame_count, self.fps)
 				self.filter_good_tracks[index].pop(row)
 
-
-		"""
-		METHOD 2: Relative Polar Coordinates (best for high #)
-		"""
-
-		# row = 0
-
-		# for track in self.good_tracks[index]:
-		# 	# Extract details from the track
-		# 	track_id = track[0]
-		# 	centroid_x = track[1]
-		# 	centroid_y = track[2]
-
-		# 	if self.matching_dict[index][track_id] not in self.cumulative_tracks[index].track_plots:
-		# 		corrValues[track_id] = {}
-
-		# 		# Update track_new_plots with centroid and feature variable of every new frame
-		# 		track_plot = self.cumulative_tracks[index].track_new_plots[track_id]
-		# 		track_plot.update([centroid_x, centroid_y], self.frame_count)
-		# 		track_plot.calculate_track_feature_variable(self.frame_count, self.fps)
-
-		# 		# if track is not a new track, we use 90 frames as the minimum requirement before matching occurs
-		# 		# if track_plot.frameNos.size >= 90 and track_plot.track_feature_variable.size >= 90 and (
-		# 		#         math.sqrt(np.sum(np.square(track_plot.track_feature_variable)))) != 0:
-					
-		# 		# update location of other tracks
-		# 		track_plot.update_other_tracks(self.cumulative_tracks[index])
-
-		# 		# look into 2nd camera's new tracks (new tracks first)
-		# 		for alt_track_plot in self.cumulative_tracks[alt].track_new_plots.values():
-		# 			# track in 2nd camera must fulfills requirements to have at least 90 frames to match
-		# 			# if alt_track_plot.frameNos.size >= 90 and alt_track_plot.track_feature_variable.size >= 90 and (
-		# 			#         math.sqrt(np.sum(np.square(alt_track_plot.track_feature_variable)))) != 0:
-						
-		# 			# update location of other tracks
-		# 			alt_track_plot.update_other_tracks(self.cumulative_tracks[alt])
-
-		# 			relative_strength = self.calculate_strength(track_plot.other_tracks, alt_track_plot.other_tracks)
-
-		# 			corrValues[track_id][alt_track_plot.id] = relative_strength
-
-		# 		# look into other camera's matched tracks list (old tracks last)
-		# 		for alt_track_plot in self.cumulative_tracks[alt].track_plots.values():
-					
-		# 			eligibility_flag = True
-					
-		# 			# do not consider dead tracks from the other camera
-		# 			for dead_track_id in self.dead_tracks[alt]:
-		# 				if dead_track_id in self.matching_dict[alt] and self.matching_dict[alt][dead_track_id] == alt_track_plot.id:
-		# 					eligibility_flag = False  # 2nd camera's track has already been lost. skip the process of matching for this track
-		# 					break
-
-		# 			# test to see if alternate camera's track is currently being matched with current camera
-		# 			for alt_tracker in self.good_tracks[index]:
-		# 				if alt_track_plot.id == self.matching_dict[index][alt_tracker[0]]:
-		# 					eligibility_flag = False  # 2nd camera's track has already been matched. skip the process of matching for this track
-		# 					break
-
-		# 			if eligibility_flag is True: # and (math.sqrt(np.sum(np.square(alt_track_plot.track_feature_variable)))) != 0:
-						
-		# 				# update location of other tracks
-		# 				alt_track_plot.update_other_tracks(self.cumulative_tracks[alt])
-
-		# 				relative_strength = self.calculate_strength(track_plot.other_tracks, alt_track_plot.other_tracks)
-
-		# 				corrValues[track_id][alt_track_plot.id] = relative_strength
-
-		# 		row += 1
-
-		# 	# if track is already a matched current track
-		# 	else:
-		# 		track_plot = self.cumulative_tracks[index].track_plots[self.matching_dict[index][track_id]]
-		# 		track_plot.update((centroid_x, centroid_y), self.frame_count)
-		# 		track_plot.calculate_track_feature_variable(self.frame_count, self.fps)
-		# 		self.filter_good_tracks[index].pop(row)
-
-		# matching process, finding local maximas in the cross correlation results
-		# find local maximas in corrValues. for every iteration, we search every valid track to be re-id from current camera
 
 		for x in self.filter_good_tracks[index]:
 			
@@ -498,7 +413,7 @@ class MultiTrackerNode(Node):
 
 	def get_total_number_of_tracks(self):
 		"""
-		Add func description
+		Updates the sum of new tracks and existing tracks, to give a cumulative total.
 		"""
 		self.total_tracks[0] = len(self.cumulative_tracks[0].track_new_plots) + len(self.cumulative_tracks[0].track_plots)
 		self.total_tracks[1] = len(self.cumulative_tracks[1].track_new_plots) + len(self.cumulative_tracks[1].track_plots)
@@ -506,21 +421,145 @@ class MultiTrackerNode(Node):
 
 	def normalise_track_plot(self, track_plot):
 		"""
-		Add func description
+		Normalises the existing track plot based on mean and sd.
 		"""
-		# method 1:
-		# track_plot_normalize_xj = (track_plot.track_feature_variable) / (
-		# math.sqrt(np.sum(np.square(track_plot.track_feature_variable))))
-
-		# method 2:
 		return (track_plot.track_feature_variable - np.mean(
 			track_plot.track_feature_variable)) / (np.std(track_plot.track_feature_variable) * math.sqrt(len(
 			track_plot.track_feature_variable)))
 
+	def compute_matching_score(self, track_plot, alt_track_plot, index, alt):
+        
+        # normalization of cross correlation values
+		track_plot_normalize_xj = self.normalise_track_plot(track_plot)
+		alt_track_plot_normalize_xj = self.normalise_track_plot(alt_track_plot)
+
+        # updating of tracks in the local neighbourhood
+		track_plot.update_other_tracks(self.cumulative_tracks[index])
+		alt_track_plot.update_other_tracks(self.cumulative_tracks[alt])
+
+        # track feature variable correlation strength
+		r_value = max(np.correlate(track_plot_normalize_xj,
+                                    alt_track_plot_normalize_xj, mode='full'))
+
+        # geometric track matching strength value
+		geometric_strength = self.geometric_similarity(track_plot.other_tracks, alt_track_plot.other_tracks)
+
+        # heading deviation error score
+		heading_err = self.heading_error_relative(track_plot, alt_track_plot)
+
+		if r_value > 0.5 and (geometric_strength == 0 or geometric_strength >= 2) and heading_err < 0.05:
+			return r_value * (1 - heading_err)
+		else:
+			return 0
+            
+	def geometric_similarity(self, other_tracks_0, other_tracks_1):
+        
+		relative_strength = 0
+		count = 0
+		for a_polar in other_tracks_0:
+			(a_angle, a_dist) = a_polar
+			for b_polar in other_tracks_1:
+				(b_angle, b_dist) = b_polar
+                
+                delta_angle = (a_angle - b_angle) / (2 * math.pi)
+                angle_factor = 1 / (delta_angle * delta_angle) 
+                dist_factor = min(a_dist, b_dist) / max(a_dist, b_dist)
+
+                if (a_dist < 500 and b_dist < 500):
+                    relative_strength += angle_factor * pow(dist_factor, 4)
+                else:
+                    relative_strength += angle_factor * pow(dist_factor, 4) * (100 / (max(a_dist, b_dist) - 400))
+                
+                count += 1
+        
+		if count > 0:
+			return math.log(relative_strength / count, 10)
+		else:
+			return 0
+
+	def geometric_similarity_relative(self, other_tracks_0, other_tracks_1):
+
+		relative_strength = 0
+		count = 0
+		
+		other_tracks_0_sorted = sorted(other_tracks_0, key=lambda tup: tup[0])
+		other_tracks_1_sorted = sorted(other_tracks_1, key=lambda tup: tup[0])
+
+		other_tracks_0_iter = iter(other_tracks_0_sorted)
+		other_tracks_1_iter = iter(other_tracks_1_sorted)
+
+		(angle_0, length_0) = next(other_tracks_0_iter, (None,None))
+		(angle_1, length_1) = next(other_tracks_1_iter, (None,None))
+
+		while True:
+			
+			(next_angle_0, next_length_0) = next(other_tracks_0_iter, (None,None))
+			(next_angle_1, next_length_1) = next(other_tracks_1_iter, (None,None))
+
+			if (next_angle_0, next_length_0) != (None,None) and (next_angle_1, next_length_1) != (None,None):
+
+				dist_factor = min(next_length_0, next_length_1) / max(next_length_0, next_length_1)
+				relative_strength += (dist_factor / abs((next_angle_1 - angle_1) - (next_angle_0 - angle_0))) * (100 / (max(next_length_0, next_length_1, 500) - 400))
+				count += 1
+				(angle_0, length_0) = (next_angle_0, next_length_0)
+				(angle_1, length_1) = (next_angle_1, next_length_1)
+			
+			else:
+				break
+
+		if count == 0:
+			return 0
+		else: 
+			return math.log(relative_strength / count, 10)
+
+	
+	def heading_error(self, track_plot, alt_track_plot):
+		for i in range(-1,-29,-1):
+			dx_0 = track_plot.xs[i] - track_plot.xs[i-1]
+			dy_0 = track_plot.ys[i] - track_plot.ys[i-1]
+			angle_0 = math.atan2(dy_0, dx_0)
+
+			dx_1 = alt_track_plot.xs[i] - alt_track_plot.xs[i-1]
+			dy_1 = alt_track_plot.ys[i] - alt_track_plot.ys[i-1]
+			angle_1 = math.atan2(dy_1, dx_1)
+
+			if (abs(angle_0 - angle_1) / (2 * math.pi) > 0.2):
+				return False
+		
+		return True
+
+	def heading_error_relative(self, track_plot, alt_track_plot):
+		
+		deviation = 0
+
+		dx_0 = track_plot.xs[-1] - track_plot.xs[-2]
+		dy_0 = track_plot.ys[-1] - track_plot.ys[-2]
+		rotation_0 = (math.atan2(dy_0, dx_0) + math.pi) / (2 * math.pi)
+
+		dx_1 = alt_track_plot.xs[-1] - alt_track_plot.xs[-2]
+		dy_1 = alt_track_plot.ys[-1] - alt_track_plot.ys[-2]
+		rotation_1 = (math.atan2(dy_1, dx_1) + math.pi) / (2 * math.pi)
+
+		
+		for i in range(-2,-29,-1):
+			dx_0 = track_plot.xs[i] - track_plot.xs[i-1]
+			dy_0 = track_plot.ys[i] - track_plot.ys[i-1]
+			angle_0 = (math.atan2(dy_0, dx_0) + math.pi) / (2 * math.pi)
+
+			dx_1 = alt_track_plot.xs[i] - alt_track_plot.xs[i-1]
+			dy_1 = alt_track_plot.ys[i] - alt_track_plot.ys[i-1]
+			angle_1 = (math.atan2(dy_1, dx_1) + math.pi) / (2 * math.pi)
+
+			relative_0 = (angle_0 - rotation_0) % 1
+			relative_1 = (angle_1 - rotation_1) % 1
+
+			deviation += min(abs((relative_0 - relative_1) % 1), abs((relative_1 - relative_0) % 1))
+
+		return deviation / 19
 
 	def calculate_3D(self):
 		"""
-		Add func description
+		Computes the 3D position of a matched drone through triangulation methods.
 		"""
 		# fx = parm.LENS_FX
 		# cx = parm.LENS_CX
@@ -579,28 +618,9 @@ class MultiTrackerNode(Node):
 				track_plot_1.xyz = None
 
 
-	def calculate_strength(self, other_tracks_0, other_tracks_1):
-		"""
-		Add func description
-		"""
-		relative_strength = 0
-		for a_polar in other_tracks_0:
-			(a_angle, a_dist) = a_polar
-			for b_polar in other_tracks_1:
-				(b_angle, b_dist) = b_polar
-				
-				delta_angle = (a_angle - b_angle) / (2 * math.pi)
-				angle_factor = 1 / (delta_angle * delta_angle) 
-				dist_factor = min(a_dist, b_dist) / max(a_dist, b_dist)
-
-				relative_strength += angle_factor * pow(dist_factor, 4)
-		
-		return relative_strength
-
-
 	def imshow_resized_dual(self, window_name, img):
 		"""
-		Function to resize and enlarge tracking frame
+		Function to resize and enlarge tracking frame.
 		"""
 		aspect_ratio = img.shape[1] / img.shape[0]
 

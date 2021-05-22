@@ -6,14 +6,8 @@ import numpy as np
 class CameraTracks:
     def __init__(self, index):
         self.index = index
-        self.track_plots_ids = []
-        self.track_new_plots_ids = []
-        
-        # self.track_plots = []
-        # self.track_new_plots = []
         self.track_plots = {}
         self.track_new_plots = {}
-
         self.output_log = []
 
 
