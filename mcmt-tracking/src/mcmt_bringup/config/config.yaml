@@ -20,6 +20,9 @@ McmtSingleDetectNode:
     DILATION_ITER: 2
     REMOVE_GROUND_ITER: 5.75
     BACKGROUND_CONTOUR_CIRCULARITY: 0.5
+    BRIGHTNESS_THRES: 160
+    SKY_THRES: 200
+
 
 McmtMultiDetectNode:
   ros__parameters:
