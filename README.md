@@ -11,8 +11,8 @@
 - [4. Aim](#4-aim)
 - [5. Capabilities](#5-capabilities)
 - [6. Installation Guide](#6-installation-guide)
-  * [6.1 Install locally](#61-install-locally)
-  * [6.2 Install using Docker](#62-install-using-docker)
+  * [6.1 Install and build locally](#61-install-and-build-locally)
+  * [6.2 Install and build using Docker](#62-install-and-build-using-docker)
 - [7. Configurations](#7-configurations)
 - [8. Run](#8-run)
   * [8.1 Run software locally](#81-run-software-locally)
@@ -21,7 +21,15 @@
 - [9. Acknowledgements](#9-acknowledgements)
 
 
+[//]: # (Image References)
+
+[demo_gif]: ./docs/software_demp.gif "Software Demo"
+
+---
+
 ## 3. Publications
+
+![Software Demo][demo_gif]
 
 1. Paper on trajectory-based target matching and re-identification between cameras:
 	* Niven Sie Jun Liang and Sutthiphong Srigrarom. "Multi-camera multi-target tracking systems with trajectory-based target matching and re-identification." In *2021 IEEE International Conference on Unmanned Aerial Systems (ICUAS)*, IEEE, Athens, Greece, 2021.
@@ -53,74 +61,196 @@ Thus, our software incorporates the use of a multiple camera surveillance system
 
 ## 5. Capabilities
 
-The current software capabilities are:
+The current software runs in a Dockerized environment and it is built on Robot Operating System (ROS2) framework as our message passing ecosystem. We use ROS2's Data Distribution Service (DDS) as our centralized system of communications for message passing. DDS uses RTPS (Real-Time Publish-Subscribe) protocol and acts as a central broker for data distribution. The software is built in C++ for high runtime performance capabilities, and we use Python for data management and matching of tracks' feature values.
 
-1. Track multiple targets in each camera frame. The software implements computer vision techniques such as blob detection, background subtractions, etc. 
+Our software mainly runs on two process and are handled in the respective ROS2 nodes. They are the **detection and tracking process**, and the **re-identification and trackplot process**. They are built on the two main ROS2 packages in our software stack, *"MCMT Detect"* and *"MCMT Track"*. 
 
-2. Implements the use of DeepSort algorithm to continuously track and localize these targets. We use Kalman filtering (KF) and Discriminative Correlation Filter as our state estimation techniques in our target tracking algorithm. Both filters are implemented in parrallel, as these targets move at fast and erratic speeds, and using these filters allow us to better predict their positions for continuous tracking.
+Our software capabilities include:
 
-3. The software has re-identification capabilities between targets. This would mean that every camera will be able to know that they are tracking the same target, purely based on their kinematic features. We implement a binary classification model that matches and re-identifies these targets between cameras.
+1. Open and read from single / double camera sensors, and obtain live camera frames.
 
-4. Estimation of targets' location in 3-dimensional space using triangulation methodology
+2. Apply image processing techniques to remove background noise, by distinguisihing between foreground and background. We apply background subtraction in our image processing pipeline, and subsequently identify contours that do not conform to a minimum level of circularity. We deem these contours as background, and subtract them out of our image frames.
+
+3. Apply morphological operations such as dilation and erosion to remove noise and enhance our detection.
+
+4. Apply thresholding and binarization of our frames to obtained masked frames to detect targets using blob detection.
+
+5. Use of Extemded Kalman filtering (KF) and Discriminative Correlation Filter (DCF) as our state estimation techniques to predict our targets' next known location in the following frames.Both filters are implemented in our tracking pipeline, as these targets move at fast and erratic speeds, and using these filters allow us to better predict their positions for continuous tracking.
+
+6. Implements the use of Hungarian / Munkre's algorithm to match our detections to tracks. The matching algorithm is based on a 2 dimensional cost matrix of tracks and detections, where the cost is computed by comparing every detection's euclidean distance away from each tracked target predicted location from our DCF and EKF filters. 
+
+7. The software has re-identification capabilities of targets between cameras. This would mean that every camera will be able to know that they are tracking the same target, purely based on their kinematic features. We implement cross-correlation matching of tracks' trajectory features, and obtain a 2-dimensional correlation score between the cameras' tracks.
+
+8. Apply graph matching algorithm for geomentry-based identification using relative coordinates. The software initializes a complete bipartite graph, that calculates the maximum sum of the weights of the edges that span across the two disjoint groups of the complete bipartite graph. We obtain a geometry-based identification using relative coordinates, and serves as a secondary verification in our re-identification process.
+
+9. Estimation of targets' location in 3-dimensional space using triangulation and stereo camera methodology. We use disparities between the two camera frames to obtain depth estimations of the tracked targets.
 
 
 ## 6. Installation Guide
 
-The following step-by-step processing will guide you on the installation process. Our software requires Linux environment to run it. To run it on other OS, please install using Docker.
+The following step-by-step processing will guide you on the installation process. Our software runs on Linux environment with ROS2 Eloquent. To run it on other OS, please install and run using Docker. The following step-by-step instructions will guide you on the installation process.
 
-### 6.1 Install locally
+### 6.1 Install and build locally
 
-Build our environment using Anaconda. Please install the latest version of Anaconda before continuing.
+1. Pull spot-it-3d repository
+
+	``` bash
+	get clone https://github.com/sieniven/spot-it-3d.git
+	```
+
+2. Install ROS2 Eloquent (Bare Bones version). Refer to: https://index.ros.org/doc/ros2/Installation/Eloquent/Linux-Install-Debians/
+
+3. Install required dependencies. 
+
+	``` bash
+	cd ~/spot-it-3d/mcmt-tracking/bin/
+	python3 -m pip install -r requirements.txt
+	```
+
+4. Install Boost libraries
+	
+	``` bash
+	sudo apt-get update && sudo apt-get install libboost-all-dev 
+	```
+
+5. Install OpenCV dependencies
+	
+	``` bash
+	sudo sudo apt-get purge *libopencv*
+	sudo apt-get install build-essential cmake git unzip pkg-config
+	sudo apt-get install libjpeg-dev libpng-dev libtiff-dev
+	sudo apt-get install libavcodec-dev libavformat-dev libswscale-dev
+	sudo apt-get install libgtk2.0-dev libcanberra-gtk*
+	sudo apt-get install python3-dev python3-numpy python3-pip
+	sudo apt-get install libxvidcore-dev libx264-dev libgtk-3-dev
+	sudo apt-get install libtbb2 libtbb-dev libdc1394-22-dev
+	sudo apt-get install libv4l-dev v4l-utils
+	sudo apt-get install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+	sudo apt-get install libavresample-dev libvorbis-dev libxine2-dev
+	sudo apt-get install libfaac-dev libmp3lame-dev libtheora-dev
+	sudo apt-get install libopencore-amrnb-dev libopencore-amrwb-dev
+	sudo apt-get install libopenblas-dev libatlas-base-dev libblas-dev
+	sudo apt-get install liblapack-dev libeigen3-dev gfortran
+	sudo apt-get install libhdf5-dev protobuf-compiler
+	sudo apt-get install libprotobuf-dev libgoogle-glog-dev libgflags-dev
+	```
+
+6. Install OpenCV and OpenCV_Contrib libraries
+
+	* Install latest version, refer to installation guide here: https://docs.opencv.org/master/d7/d9f/tutorial_linux_install.html.
+	* Install OpenCV and OpenCV_Contrib
+
+	``` bash
+	wget https://github.com/opencv/opencv/archive/4.5.2.zip -O opencv-4.5.2.zip
+	wget https://github.com/opencv/opencv_contrib/archive/4.5.2.zip -O opencv-contrib-4.5.2.zip
+	unzip opencv-4.5.2.zip
+	unzip opencv-contrib-4.5.2.zip
+	mv opencv-4.5.2 opencv
+	mv opencv_contrib-4.5.2 opencv_contrib
+	mkdir -p build && cd build && cmake -D OPENCV_EXTRA_MODULES_PATH=../opencv_contrib/modules ../opencv
+	cd build && make -j5
+	cd build && sudo make install
+	```
+
+7. After all dependencies above have been configured and installed, build MCMT software:
+
+	``` bash
+	cd ~/spot-it-3d/mcmt-tracking/mcmt-tracking/
+	./mcmt_build.sh
+	```
+
+### 6.2 Install and build using Docker
+
+1. Pull spot-it-3d repository
 
 ``` bash
-cd mcmt-tracking/mcmt-dockerfiles/
-conda env create -f mcmt-track.yml
+get clone https://github.com/sieniven/spot-it-3d.git
 ```
 
-### 6.2 Install using Docker
+2. Install Docker Engine. Refer to https://docs.docker.com/engine/install/ to install Docker Engine.
 
-Build our Docker image using Docker. Please install the latest version of Docker before continuing.
+3. Build our Docker image using Docker.
 
 ``` bash
-cd mcmt-tracking/mcmt-dockerfiles/
-sudo docker-compose -f mcmt-tracker-launch.yaml build
+cd spot-it-3d/mcmt-dockerfiles/
+sudo docker-compose -f mcmt-multi-launch.yaml build
 ```
 
 ## 7. Configurations
 
-* To configure the software to run in real-time, go to *"mcmt-tracking/mcmt_tracking/multi-cam/bin"* 
-* change to cameras = [{camera_index_1}, {camera_index_2}] in the main body. The camera indexes are OpenCV's camera port device indexes. 
+* To change the configurations of the software, please use the configurations file ***"config.yaml"***. The file can be found in *"~/spot-it-3d/mcmt-tracking/mcmt-tracking/src/mcmt_bringup/config/config.yaml"*.
 
-* To configure the tracking to run on video files, change cameras list to input the respective video filenames. For example, cameras = [{filename_1}, {filename_2}].
+* Change IS_REALTIME to True if running the software live. Change IS_REALTIME to False if running the software on video files.
 
+* Use VIDEO_INPUT to set video camera index for single camera detector and tracker nodes. Use VIDEO_INPUT_1 and VIDEO_INPUT_2 to configure the camera sensors for the multi camera detector and tracker nodes. The camera indexes are OpenCV's camera port device indexes.
+
+* When running with Docker, ensure that VIDEO_INPUT_1 and VIDEO_INPUT_2 are set to "0" and "2" respectively.
+
+* To change the image processing parameters, we can also use the **config.yaml** file tune them. Parameters such as video parameters, visibility parameters, background subtraction parameters, and dilation parameters for the software can be tuned here. 
 
 ## 8. Run
 
 ### 8.1 Run software locally
 
-``` bash
-cd mcmt-tracking/mcmt-tracking/bin
-./mcmt_tracker.sh
-```
+* To launch the MCMT software, we will launch the MCMT Tracker and the MCMT Detector. Note that the MCMT Tracker has to be launched first, before launching the MCMT Detector.
+
+* To launch the multi-camera sensor system software:
+	
+	* In the first bash terminal:
+		
+		``` bash
+		cd ~/spot-it-3d/mcmt-tracking/bin
+		./mcmt_multi_tracker.sh
+		```
+
+	* In the second bash terminal:
+		
+		``` bash
+		cd ~/spot-it-3d/mcmt-tracking/bin
+		./mcmt_multi_detector.sh
+		```
+
+* To launch the single-camera sensor system software:
+
+	* In the first bash terminal:
+		
+		``` bash
+		cd ~/spot-it-3d/mcmt-tracking/bin
+		./mcmt_single_tracker.sh
+		```
+
+	* In the second bash terminal:
+		
+		``` bash
+		cd ~/spot-it-3d/mcmt-tracking/bin
+		./mcmt_single_detector.sh
+		```
 
 ### 8.2 Run software on Docker
 
 ### 1. Ensure that camera ports are configured correctly
 
-* We will link our server ports with our container ports using the docker-compose files. Go into **"mcmt-dockerfiles/mcmt-tracker-launch.yaml"**.
-* Link server video device ports with container video device ports under **"services"**.
+* We will link our server camera sensor ports with our container ports using the docker-compose files. Go into **"mcmt-dockerfiles/mcmt-tracker-launch.yaml"**.
+* Link server video device ports with container video device ports under each **"services"**.
 * For example, if cameras are connected to computer video ports 0 and 1, the docker-compose **"devices"** column should look like this:
 	
 	``` bash 
 		devices:
 		- "/dev/video0:/dev/video0"
-		- "/dev/video2:/dev/video2"
+		- "/dev/video1:/dev/video2"
 	```
-2. Launch the software inside the Docker container using Docker-compose:
+2. Launch the software inside the Docker container using Docker-compose. To launch the multi-camera sensor system software:
 
 	``` bash
 	cd mcmt-tracking/mcmt-dockerfiles/
-	sudo docker-compose -f mcmt-tracker-launch.yaml up
+	sudo docker-compose -f mcmt-multi-launch.yaml up
+	```
+
+3. Similarly, to launch the single-camera sensor system software:
+
+	``` bash
+	cd mcmt-tracking/mcmt-dockerfiles/
+	sudo docker-compose -f mcmt-single-launch.yaml up
 	```
 
 
