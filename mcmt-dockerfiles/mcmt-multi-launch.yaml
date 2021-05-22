@@ -1,0 +1,34 @@
+version: '3.3'
+
+services:
+  mcmt-detector:
+    build:
+      dockerfile: ./mcmt-dockerfiles/Dockerfile.mcmt
+      context: ..
+    image: spotit3d/mcmt:mcmt
+    network_mode: "host"
+    devices:
+      - "/dev/video0:/dev/video0"
+      - "/dev/video2:/dev/video2"
+    environment:
+      - DISPLAY=unix$DISPLAY
+    volumes:
+      - /home/mcmt/mcmt-docker/
+    stop_signal: SIGINT
+    command: bash -c "cd spot-it-3d/mcmt-tracking/bin && sleep 5 && ./mcmt_multi_detector.sh"
+  
+  mcmt-tracker:
+    build:
+      dockerfile: ./mcmt-dockerfiles/Dockerfile.mcmt
+      context: ..
+    image: spotit3d/mcmt:mcmt
+    network_mode: "host"
+    devices:
+      - "/dev/video0:/dev/video0"
+      - "/dev/video2:/dev/video2"
+    environment:
+      - DISPLAY=unix$DISPLAY
+    volumes:
+      - /home/mcmt/mcmt-docker/
+    stop_signal: SIGINT
+    command: bash -c "cd spot-it-3d/mcmt-tracking/bin && ./mcmt_multi_track.sh"

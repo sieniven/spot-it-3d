@@ -58,11 +58,11 @@ if __name__ == "__main__":
     """
     # single camera test:
     # cameras = [0]
-    cameras = ['/home/niven/spot-it-3d/data/vidtest3.mp4']
+    # cameras = ['/home/niven/spot-it-3d/data/vidtest3.mp4']
 
     # multi cameras test:
     # cameras = [0, 2]
-    # cameras = ['/home/niven/spot-it-3d/data/vidtest3.mp4', '/home/niven/spot-it-3d/data/vidtest4.mp4']
+    cameras = ['/home/niven/spot-it-3d/data/vidtest3.mp4', '/home/niven/spot-it-3d/data/vidtest4.mp4']
     # cameras = ['/home/niven/spot-it-3d/data/00012_Trim_1.mp4', '/home/niven/spot-it-3d/data/MVI_6690_Trim_1.mp4']
     # cameras = ['/home/niven/spot-it-3d/data/00012_Trim_2.mp4', '/home/niven/spot-it-3d/data/MVI_6690_Trim_2.mp4']
     # cameras = ['/home/niven/spot-it-3d/data/00014_Trim.mp4', '/home/niven/spot-it-3d/data/IMG_2059_HEVC.mp4']
