@@ -91,11 +91,14 @@ void McmtSingleDetectNode::start_record()
 	frame_id_ = 1;
 	while (1) {
 		auto start = std::chrono::system_clock::now();
+		
 		// get camera frame
 		cap_ >> frame_;
+		
 		// check if getting frame was successful
 		if (frame_.empty()) {
 			std::cout << "Error: Video camera is disconnected!" << std::endl;
+			std::raise(SIGINT);
 			break;
 		}
 
@@ -108,19 +111,33 @@ void McmtSingleDetectNode::start_record()
 		
 		// get detections
 		detect_objects();
-		cv::imshow("Remove Ground", removebg_);
+		// cv::imshow("Remove Ground", removebg_);
 		
 		// apply state estimation filters
 		predict_new_locations_of_tracks();
 
-		// clear tracking variable vectors
-		assignments_.clear();
-		unassigned_tracks_.clear();
-		unassigned_detections_.clear();
-		tracks_to_be_removed_.clear();
+			// clear tracking variable vectors
+			assignments_.clear();
+			unassigned_tracks_.clear();
+			unassigned_detections_.clear();
+			tracks_to_be_removed_.clear();
+			
+			assignments_kf_.clear();
+			unassigned_tracks_kf_.clear();
+			unassigned_detections_kf_.clear();
 
-		// get cost matrix and match detections and track targets
-		detection_to_track_assignment();
+			assignments_dcf_.clear();
+			unassigned_tracks_dcf_.clear();
+			unassigned_detections_dcf_.clear();
+
+		// get KF cost matrix and match detections and track targets
+		detection_to_track_assignment_KF();
+
+		// get DCF cost matrix and match detections and track targets
+		detection_to_track_assignment_DCF();
+
+		// compare DCF and KF cost matrix
+		compare_cost_matrices();
 
 		// updated assigned tracks
 		update_assigned_tracks();
@@ -140,7 +157,7 @@ void McmtSingleDetectNode::start_record()
 
 		// show masked and frame
 		// cv::imshow("Frame", frame_);
-		cv::imshow("Masked", masked_);
+		// cv::imshow("Masked", masked_);
 		cv::waitKey(1);
 
 		// publish detection and tracking information
@@ -250,11 +267,11 @@ void McmtSingleDetectNode::predict_new_locations_of_tracks()
 
 /**
  * This function assigns detections to tracks using Munkre's algorithm. The algorithm is 
- * based on cost calculated euclidean distance, with detections being located too far 
- * away from existing tracks being designated as unassigned detections. Tracks without any
- * nearby detections are also designated as unassigned tracks
+ * based on cost calculated euclidean distance between detections and tracks' prediction location
+ * based on KF. Detections being located too far away from existing tracks will be designated as
+ * unassigned detections. Tracks without any nearby detections are also designated as unassigned tracks
  */
-void McmtSingleDetectNode::detection_to_track_assignment()
+void McmtSingleDetectNode::detection_to_track_assignment_KF()
 {
 	// declare non assignment cost
 	float cost_of_non_assignment = 10 * scale_factor_;
@@ -316,24 +333,267 @@ void McmtSingleDetectNode::detection_to_track_assignment()
 					std::vector<int> indexes(2, 0);
 					indexes[0] = track_index;
 					indexes[1] = assignment;
-					assignments_.push_back(indexes);
+					assignments_kf_.push_back(indexes);
 				} else {
 					// at the top right of the cost matrix. if detection index is equal to or more than 
 					// the no. of detections, then the track is assigned to a dummy detection. As such, 
 					// it is an unassigned track
-					unassigned_tracks_.push_back(track_index);
+					unassigned_tracks_kf_.push_back(track_index);
 				}
 			} else {
 				// at the lower half of cost matrix. Thus, if detection index is less than no. of 
 				// detections, then the detection is assigned to a dummy track. As such it is an 
 				// unassigned detections
 				if (assignment < num_of_centroids) {
-					unassigned_detections_.push_back(assignment);
+					unassigned_detections_kf_.push_back(assignment);
 				}
 				// if not, then the last case is when excess dummies are matching with each other. 
 				// we will ignore these cases
 			}
 			track_index++;
+		}
+	}
+}
+
+/**
+ * This function assigns detections to tracks using Munkre's algorithm. The algorithm is 
+ * based on cost calculated euclidean distance between detections and tracks' prediction location
+ * based on DCF. Detections being located too far away from existing tracks will be designated as
+ * unassigned detections. Tracks without any nearby detections are also designated as unassigned tracks
+ */
+void McmtSingleDetectNode::detection_to_track_assignment_DCF()
+{
+	// declare non assignment cost
+	float cost_of_non_assignment = 10 * scale_factor_;
+
+	// num of tracks and centroids, and get min and std::max sizes
+	int num_of_tracks = tracks_.size();
+	int num_of_centroids = centroids_.size();
+	int total_size = num_of_tracks + num_of_centroids;
+
+	// declare 2-D cost matrix and required variables
+	std::vector<std::vector<double>> cost(total_size, std::vector<double>(total_size, 0.0));
+	int row_index = 0;
+	int col_index = 0;
+	std::vector<int> assignments_all;
+
+	// get euclidean distance of every detected centroid with each track's predicted location
+	for (auto & track : tracks_) {
+		for (auto & centroid : centroids_) {
+			cv::Point2f point;
+			point.x = track->box_.x + (0.5 * track->box_.width);
+			point.y = track->box_.y + (0.5 * track->box_.height);
+			cost[row_index][col_index] = euclideanDist(point, centroid);
+			col_index++;
+		}
+		// padding cost matrix with dummy columns to account for unassigned tracks, used to fill
+		// the top right corner of the cost matrix
+		for (int i = 0; i < num_of_tracks; i++) {
+			cost[row_index][col_index] = cost_of_non_assignment;
+			col_index++;
+		}
+		row_index++;
+		col_index = 0;
+	}
+
+	// padding for cost matrix to account for unassigned detections, used to fill the bottom
+	// left corner of the cost matrix
+	std::vector<double> append_row;
+	for (int i = num_of_tracks; i < total_size; i++) {
+		for (int j = 0; j < num_of_centroids; j++) {
+			cost[i][j] = cost_of_non_assignment;
+		}
+	}
+
+	// the bottom right corner of the cost matrix, corresponding to dummy detections being 
+	// matched to dummy tracks, is left with 0 cost to ensure that the excess dummies are
+	// always matched to each other
+
+	// apply Hungarian algorithm to get assignment of detections to tracked targets
+	if (total_size > 0) {
+		assignments_all = apply_hungarian_algo(cost);
+		int track_index = 0;
+	
+		// get assignments, unassigned tracks, and unassigned detections
+		for (auto & assignment : assignments_all) {
+			if (track_index < num_of_tracks) {
+				// track index is less than no. of tracks, thus the current assignment is a valid track
+				if (assignment < num_of_centroids) {
+					// if in the top left of the cost matrix (no. of tracks x no. of detections), these 
+					// assignments are successfully matched detections and tracks. For this, the assigned 
+					// detection index must be less than number of centroids. if so, we will store the 
+					// track indexes and detection indexes in the assignments vector
+					std::vector<int> indexes(2, 0);
+					indexes[0] = track_index;
+					indexes[1] = assignment;
+					assignments_dcf_.push_back(indexes);
+				} else {
+					// at the top right of the cost matrix. if detection index is equal to or more than 
+					// the no. of detections, then the track is assigned to a dummy detection. As such, 
+					// it is an unassigned track
+					unassigned_tracks_dcf_.push_back(track_index);
+				}
+			} else {
+				// at the lower half of cost matrix. Thus, if detection index is less than no. of 
+				// detections, then the detection is assigned to a dummy track. As such it is an 
+				// unassigned detections
+				if (assignment < num_of_centroids) {
+					unassigned_detections_dcf_.push_back(assignment);
+				}
+				// if not, then the last case is when excess dummies are matching with each other. 
+				// we will ignore these cases
+			}
+			track_index++;
+		}
+	}
+}
+
+/**
+ * This function processes the two cost matrices from the DCF and KF predictions for the matching
+ * of detections to tracks. We obtain the final assignments, unassigned_tracks, and unassigned
+ * detections vectors from this function.
+ */
+void McmtSingleDetectNode::compare_cost_matrices()
+{
+	// check to see if it is the case where there are no assignments in the current frame
+	if (assignments_kf_.size() == 0 && assignments_dcf_.size()) {
+			assignments_ = assignments_kf_;
+			unassigned_tracks_ = unassigned_tracks_kf_;
+			unassigned_detections_ = unassigned_detections_kf_;
+		return;
+	}
+
+	// check to see if assignments by kf and dcf are equal
+	else if (assignments_kf_.size() == assignments_dcf_.size()) {
+		// get bool if the kf and dcf assignments are equal
+		bool is_equal = std::equal(
+			assignments_kf_.begin(), assignments_kf_.end(), assignments_dcf_.begin());
+		
+		if (is_equal == true) {
+			// assignments are the same. get the final tracking assignment vectors
+			assignments_ = assignments_kf_;
+			unassigned_tracks_ = unassigned_tracks_kf_;
+			unassigned_detections_ = unassigned_detections_kf_;
+			return;
+		} 
+		else {
+			// we will always choose to use detection-to-track assignments using the dcf
+			assignments_ = assignments_dcf_;
+			unassigned_tracks_ = unassigned_tracks_dcf_;
+			unassigned_detections_ = unassigned_detections_dcf_;
+			return;
+		}
+	}
+
+	// when kf and dcf assignments are not zero, and they are not equal as well. in this code
+	// block, we know that the dcf and kf differ in terms of assigning the tracks and detections.
+	// this means that either the dcf or the kf is able to assign a detection to a track, while the
+	// other filter was not able to. in this case, we will loop through their assignments, and 
+	// implement all successful assignments to the final tracking assignment vectors
+	else {
+		// declare flags
+		bool different_flag;
+		bool different_assignment_flag;
+		std::vector<int> assigned_tracks;
+		std::vector<int> assigned_detections;
+
+		// iterate through every dcf assignment
+		for (auto & dcf_assignment : assignments_dcf_) {
+			different_flag = true;
+			different_assignment_flag = false;
+			
+			// interate through kf assignments
+			for (auto & kf_assignment : assignments_kf_) {
+				// check if dcf assignment is the same as the kf assignment. if it is, break immediately
+				// condition: different_flag = false, different_assignment_flag = false
+				if (dcf_assignment == kf_assignment) {
+					different_flag = false;
+					break;
+				}
+				// check if dcf assignment track index equal to the kf assignment track index
+				// if it is, then the kf and dcf assigned the same track to a different detection
+				// condition: different_flag = true, different_assignment_flag = true
+				else {
+					if (dcf_assignment[0] == kf_assignment[0]) {
+						different_assignment_flag = true;
+						break;
+					}
+				}
+			}
+
+			// both kf and dcf assigned the same detection to track
+			// condition: different_flag = false
+			if (different_flag == false) {
+				assignments_.push_back(dcf_assignment);
+			}
+
+			// kf and dcf did not assign the same detection to track
+			// condition: different_flag = true
+			else {
+				// see if kf and dcf assigned the track to a different detections
+				// condition: different_flag = false, different_assignment_flag = true
+				// for this case, we will always go with dcf predictions
+				if (different_assignment_flag == true) {
+					assignments_.push_back(dcf_assignment);
+				}
+				// dcf assigned the track to a detection, but the kf did not. 
+				// condition: different_flag = false, different_assignment_flag = false
+				// for this case, we will assign the track to the detection that the dcf assigned it to.
+				else {
+					assignments_.push_back(dcf_assignment);
+				}
+			}
+		}
+
+		// iterate through every kf assignment. in this iteration, we will find for any tracks that
+		// the kf assigned, but the dcf did not
+		for (auto & kf_assignment : assignments_kf_) {
+			different_assignment_flag = false;
+
+			// interate through dcf assignments
+			for (auto & dcf_assignment : assignments_dcf_) {
+				// check if kf assignment is the same as the dcf assignment. if it is, immediately break
+				// and move on to the next dcf track
+				if (dcf_assignment == kf_assignment) {
+					break;
+				}
+				// check if kf assignment track index equal to the dcf assignment track index
+				// if it is, then the kf and dcf assigned the same track to a different detection
+				// condition: different_flag = true
+				else {
+					if (dcf_assignment[0] == kf_assignment[0]) {
+						different_assignment_flag = true;
+						break;
+					}
+				}
+			}
+
+			// code block are for cases where dcf_assignment and kf_assignment are different, and
+			// that the kf assigned the track to a detection, but the dcf did not
+			if (different_assignment_flag == false) {
+				assignments_.push_back(kf_assignment);
+				assigned_tracks.push_back(kf_assignment[0]);
+				assigned_detections.push_back(kf_assignment[1]);
+
+			}
+			// for the case where kf and dcf assigned the same track different detections (condition
+			// when different_assignment_flag = true), we will take the dcf assignments
+		}
+
+		// get unassigned tracks
+		for (auto & unassigned_track : unassigned_tracks_dcf_) {
+			if (std::find(assigned_tracks.begin(), assigned_tracks.end(), unassigned_track) != assigned_tracks.end()) {
+				continue;
+			}
+			unassigned_tracks_.push_back(unassigned_track);
+		}
+
+		// get unassigned detections
+		for (auto & unassigned_detection : unassigned_detections_dcf_) {
+			if (std::find(assigned_detections.begin(), assigned_detections.end(), unassigned_detection) != assigned_detections.end()) {
+				continue;
+			}
+			unassigned_detections_.push_back(unassigned_detection);
 		}
 	}
 }

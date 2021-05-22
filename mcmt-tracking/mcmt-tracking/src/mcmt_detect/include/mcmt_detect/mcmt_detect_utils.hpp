@@ -94,8 +94,13 @@ class Camera {
 
 		// declare tracking variables
 		std::vector<int> unassigned_tracks_, unassigned_detections_;
+		std::vector<int> unassigned_tracks_kf_, unassigned_detections_kf_;
+		std::vector<int> unassigned_tracks_dcf_, unassigned_detections_dcf_;
+		
 		// we store the matched track index and detection index in the assigments vector
 		std::vector<std::vector<int>> assignments_;
+		std::vector<std::vector<int>> assignments_kf_;
+		std::vector<std::vector<int>> assignments_dcf_;
 		std::vector<int> tracks_to_be_removed_;
 
 		// declare blob detector and background subtractor

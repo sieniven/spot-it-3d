@@ -78,9 +78,12 @@ Track::Track(
 	kf_->processNoiseCov.at<float>(3, 3) = 25;
 
 	// set measurement noise covariance matrix (R)
-	// 	1   0  
-	// 	0   1 
-	cv::setIdentity(kf_->measurementNoiseCov, cv::Scalar(1));
+	// 	100   0  
+	// 	0   	100
+	kf_->measurementNoiseCov.at<float>(0, 0) = 100;
+	kf_->measurementNoiseCov.at<float>(0, 1) = 100;
+	kf_->measurementNoiseCov.at<float>(1, 0) = 100;
+	kf_->measurementNoiseCov.at<float>(1, 1) = 100;
 
 	// set post error covariance matrix
 	// 	1   0   0   0
@@ -90,11 +93,11 @@ Track::Track(
 	cv::setIdentity(kf_->errorCovPost, cv::Scalar(1));
 
 	// set pre error covariance matrix
-	// 	1   0   0   0
+	// 	1	  0   0   0
 	// 	0   1   0   0
 	// 	0   0   1   0
 	// 	0   0   0   1
-	cv::setIdentity(kf_->errorCovPre, cv::Scalar(1));
+	cv::setIdentity(kf_->errorCovPost, cv::Scalar(1));
 
 	// input detected centroid location
 	// initialize states
