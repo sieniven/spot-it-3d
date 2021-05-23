@@ -23,9 +23,9 @@ McmtSingleDetectNode:
 
 McmtMultiDetectNode:
   ros__parameters:
-    IS_REALTIME: False
-    VIDEO_INPUT_1: "/home/niven/spot-it-3d/data/vidtest3.mp4"
-    VIDEO_INPUT_2: "/home/niven/spot-it-3d/data/vidtest4.mp4"
+    IS_REALTIME: True
+    VIDEO_INPUT_1: "0"
+    VIDEO_INPUT_2: "2"
     FRAME_WIDTH: 1920
     FRAME_HEIGHT: 1080
     VIDEO_FPS: 30
@@ -56,11 +56,9 @@ SingleTrackerNode:
 
 MultiTrackerNode:
   ros__parameters:
-    IS_REALTIME: False
-    VIDEO_INPUT_1: "/home/niven/spot-it-3d/data/vidtest3.mp4"
-    VIDEO_INPUT_2: "/home/niven/spot-it-3d/data/vidtest4.mp4"
-    CAMERA_INDEX_1: "1"
-    CAMERA_INDEX_2: "2"
+    IS_REALTIME: True
+    VIDEO_INPUT_1: "0"
+    VIDEO_INPUT_2: "2"
     FRAME_WIDTH: 1920
     FRAME_HEIGHT: 1080
     OUTPUT_VIDEO_PATH: "/home/niven/spot-it-3d/data/video_plot.mp4"

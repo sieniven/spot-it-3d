@@ -95,8 +95,6 @@ class MultiTrackerNode(Node):
 		self.declare_parameter('IS_REALTIME')
 		self.declare_parameter('VIDEO_INPUT_1')
 		self.declare_parameter('VIDEO_INPUT_2')
-		self.declare_parameter('CAMERA_INDEX_1')
-		self.declare_parameter('CAMERA_INDEX_2')
 		self.declare_parameter('FRAME_WIDTH')
 		self.declare_parameter('FRAME_HEIGHT')
 		self.declare_parameter('OUTPUT_VIDEO_PATH')
@@ -110,7 +108,6 @@ class MultiTrackerNode(Node):
 		"""
 		# get camera parameters
 		self.is_realtime = self.get_parameter('IS_REALTIME').value
-		self.cam_indexes = [self.get_parameter('CAMERA_INDEX_1').value, self.get_parameter('CAMERA_INDEX_2').value]
 
 		if self.is_realtime:
 			self.filenames = [int(self.get_parameter('VIDEO_INPUT_1').value), int(self.get_parameter('VIDEO_INPUT_2').value)]
