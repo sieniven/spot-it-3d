@@ -47,7 +47,7 @@ class MultiTrackerNode(Node):
 		
 		self.recording = cv2.VideoWriter(self.output_vid_path,
 										cv2.VideoWriter_fourcc(*'mp4v'),
-										self.fps, (self.frame_w, self.frame_h))
+										self.fps, (self.frame_w*2, self.frame_h))
 		cap.release()
 
 		# data from detector
