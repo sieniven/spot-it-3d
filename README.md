@@ -23,7 +23,7 @@
 
 ## 3. Publications
 
-![Software Demo](./docs/software_demo.gif)
+![Software Demo](./docs/software_demo_1.gif)
 
 1. Paper on trajectory-based target matching and re-identification between cameras:
 	* Niven Sie Jun Liang and Sutthiphong Srigrarom. "Multi-camera multi-target tracking systems with trajectory-based target matching and re-identification." In *2021 IEEE International Conference on Unmanned Aerial Systems (ICUAS)*, IEEE, Athens, Greece, 2021.
