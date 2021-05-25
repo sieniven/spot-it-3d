@@ -171,6 +171,7 @@ cv::Mat McmtMultiDetectNode::apply_bg_subtractions(std::shared_ptr<mcmt::Camera>
 		extract_sky(camera);
 		cv::convertScaleAbs(camera->sky_, camera->sky_, SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
 		cv::add(camera->sky_, camera->non_sky_, masked);
+		// cv::imshow("localised contrast frame", masked);
 		// Resest the sky and non-sky for future iterations
 		camera->sky_ = cv::Scalar(0,0,0);
 		camera->non_sky_ = cv::Scalar(0,0,0);
@@ -209,10 +210,6 @@ void McmtMultiDetectNode::extract_sky(std::shared_ptr<mcmt::Camera> & camera)
 	lower = cv::Scalar(0, 0, 0);
 	upper = cv::Scalar(180, 255, SKY_THRES);
 	cv::inRange(hsv, lower, upper, non_sky_temp);
-
-	// Image opening to remove small patches of sky among the treeline
-	// These small patches of sky may become noise if not removed
-	cv::morphologyEx(sky_temp, sky_temp, cv::MORPH_OPEN, element_, cv::Point(), DILATION_ITER_);
 
 	// Retrieve original RGB images with extracted sky/non-sky using bitwise and
 	cv::bitwise_and(camera->frame_, camera->frame_, camera->sky_, sky_temp);
