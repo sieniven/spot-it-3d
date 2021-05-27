@@ -169,7 +169,7 @@ cv::Mat McmtMultiDetectNode::apply_bg_subtractions(std::shared_ptr<mcmt::Camera>
 	// The "non-sky" parts are then restored back to the frame for subsequent masking operations
 	if (average_brightness(camera, cv::COLOR_BGR2HSV, 2) > BRIGHTNESS_THRES) {
 		extract_sky(camera);
-		cv::convertScaleAbs(camera->sky_, camera->sky_, SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
+		camera->sky_.convertTo(camera->sky_, -1, SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
 		cv::add(camera->sky_, camera->non_sky_, masked);
 		// cv::imshow("localised contrast frame", masked);
 		// Resest the sky and non-sky for future iterations

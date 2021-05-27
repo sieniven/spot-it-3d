@@ -171,7 +171,6 @@ void McmtSingleDetectNode::start_record()
 		std::chrono::duration<double> elapsed_seconds = end-start;
 		std::cout << "Total number of tracks: " << tracks_.size() << std::endl;
 		std::cout << "Detection took: " << elapsed_seconds.count() << "s\n";
-
 	}
 }
 
@@ -199,7 +198,7 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 	// The "non-sky" parts are then restored back to the frame for subsequent masking operations
 	if (average_brightness(cv::COLOR_BGR2HSV, 2) > BRIGHTNESS_THRES) {
 		extract_sky();
-		cv::convertScaleAbs(sky_, sky_, SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
+		sky_.convertTo(sky_, -1, SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
 		cv::add(sky_, non_sky_, masked);
 		// cv::imshow("localised contrast frame", masked);
 		// Resest the sky and non-sky for future iterations
