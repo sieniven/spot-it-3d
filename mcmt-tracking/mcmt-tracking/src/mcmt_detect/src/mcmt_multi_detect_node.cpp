@@ -1,3 +1,4 @@
+ 
 /** MCMT McmtMultiDetectNode Node
  * Author: Niven Sie, sieniven@gmail.com
  * 
@@ -426,7 +427,7 @@ void McmtMultiDetectNode::detection_to_track_assignment_DCF(std::shared_ptr<mcmt
 void McmtMultiDetectNode::compare_cost_matrices(std::shared_ptr<mcmt::Camera> & camera)
 {
 	// check to see if it is the case where there are no assignments in the current frame
-	if (camera->assignments_kf_.size() == 0 && camera->assignments_dcf_.size()) {
+	if (camera->assignments_kf_.size() == 0 && camera->assignments_dcf_.size() == 0) {
 			camera->assignments_ = camera->assignments_kf_;
 			camera->unassigned_tracks_ = camera->unassigned_tracks_kf_;
 			camera->unassigned_detections_ = camera->unassigned_detections_kf_;
@@ -464,6 +465,7 @@ void McmtMultiDetectNode::compare_cost_matrices(std::shared_ptr<mcmt::Camera> & 
 		// declare flags
 		bool different_flag;
 		bool different_assignment_flag;
+		bool already_assigned_flag;
 		std::vector<int> assigned_tracks;
 		std::vector<int> assigned_detections;
 
@@ -495,6 +497,8 @@ void McmtMultiDetectNode::compare_cost_matrices(std::shared_ptr<mcmt::Camera> & 
 			// condition: different_flag = false
 			if (different_flag == false) {
 				camera->assignments_.push_back(dcf_assignment);
+				assigned_tracks.push_back(dcf_assignment[0]);
+				assigned_detections.push_back(dcf_assignment[1]);
 			}
 
 			// kf and dcf did not assign the same detection to track
@@ -505,12 +509,16 @@ void McmtMultiDetectNode::compare_cost_matrices(std::shared_ptr<mcmt::Camera> & 
 				// for this case, we will always go with dcf predictions
 				if (different_assignment_flag == true) {
 					camera->assignments_.push_back(dcf_assignment);
+					assigned_tracks.push_back(dcf_assignment[0]);
+					assigned_detections.push_back(dcf_assignment[1]);
 				}
 				// dcf assigned the track to a detection, but the kf did not. 
 				// condition: different_flag = false, different_assignment_flag = false
 				// for this case, we will assign the track to the detection that the dcf assigned it to.
 				else {
 					camera->assignments_.push_back(dcf_assignment);
+					assigned_tracks.push_back(dcf_assignment[0]);
+					assigned_detections.push_back(dcf_assignment[1]);
 				}
 			}
 		}
@@ -518,6 +526,7 @@ void McmtMultiDetectNode::compare_cost_matrices(std::shared_ptr<mcmt::Camera> & 
 		// iterate through every kf assignment. in this iteration, we will find for any tracks that
 		// the kf assigned, but the dcf did not
 		for (auto & kf_assignment : camera->assignments_kf_) {
+			already_assigned_flag = false;
 			different_assignment_flag = false;
 
 			// interate through dcf assignments
@@ -540,10 +549,19 @@ void McmtMultiDetectNode::compare_cost_matrices(std::shared_ptr<mcmt::Camera> & 
 
 			// code block are for cases where dcf_assignment and kf_assignment are different, and
 			// that the kf assigned the track to a detection, but the dcf did not
-			if (different_assignment_flag == false) {
-				camera->assignments_.push_back(kf_assignment);
-				assigned_tracks.push_back(kf_assignment[0]);
-				assigned_detections.push_back(kf_assignment[1]);
+			if (already_assigned_flag == false || different_assignment_flag == false) {
+				// check first to see if the detection is already part of an assignment
+				// if so, do not add it as it potentially results in multiple tracks assigned to a single detection
+				if (std::find(assigned_detections.begin(), assigned_detections.end(), kf_assignment[1]) != assigned_detections.end()) {
+					continue;
+				}
+				// if detection is unassigned, assign it
+				else {
+					cout << "Passed!";
+					camera->assignments_.push_back(kf_assignment);
+					assigned_tracks.push_back(kf_assignment[0]);
+					assigned_detections.push_back(kf_assignment[1]);
+				}
 
 			}
 			// for the case where kf and dcf assigned the same track different detections (condition
