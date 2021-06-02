@@ -553,16 +553,33 @@ void McmtMultiDetectNode::compare_cost_matrices(std::shared_ptr<mcmt::Camera> & 
 				// check first to see if the detection is already part of an assignment
 				// if so, do not add it as it potentially results in multiple tracks assigned to a single detection
 				if (std::find(assigned_detections.begin(), assigned_detections.end(), kf_assignment[1]) != assigned_detections.end()) {
-					continue;
+					// existing assignment to this detection exists. since this is likely a crossover event, we prioritise KF
+					// look for confliction DCF assignment
+					for (auto & dcf_assignment : camera->assignments_dcf_) {
+						if (kf_assignment[1] == dcf_assignment[1]) {
+							// once conflicting DCF assignment found, delete it from assignments
+							camera->assignments_.erase(std::remove(camera->assignments_.begin(), camera->assignments_.end(), dcf_assignment), camera->assignments_.end());
+							assigned_tracks.erase(std::remove(assigned_tracks.begin(), assigned_tracks.end(), dcf_assignment[0]), assigned_tracks.end());
+							assigned_detections.erase(std::remove(assigned_detections.begin(), assigned_detections.end(), dcf_assignment[1]), assigned_detections.end());
+							// attempt to assign conflicting track with prior KF assignment, if it exists
+							// otherwise, don't bother
+							for (auto & prior_kf_assignment : camera->assignments_kf_) {
+								// check to ensure that the new assignment detection is unassigned
+								if (prior_kf_assignment[0] == dcf_assignment[0] && std::find(assigned_detections.begin(), assigned_detections.end(), prior_kf_assignment[1]) != assigned_detections.end()) {
+									camera->assignments_.push_back(prior_kf_assignment);
+									assigned_tracks.push_back(prior_kf_assignment[0]);
+									assigned_detections.push_back(prior_kf_assignment[1]);
+									break;
+								}
+							}
+							break;
+						}
+					}
 				}
-				// if detection is unassigned, assign it
-				else {
-					cout << "Passed!";
-					camera->assignments_.push_back(kf_assignment);
-					assigned_tracks.push_back(kf_assignment[0]);
-					assigned_detections.push_back(kf_assignment[1]);
-				}
-
+				// update the KF assignment
+				camera->assignments_.push_back(kf_assignment);
+				assigned_tracks.push_back(kf_assignment[0]);
+				assigned_detections.push_back(kf_assignment[1]);
 			}
 			// for the case where kf and dcf assigned the same track different detections (condition
 			// when different_assignment_flag = true), we will take the dcf assignments
