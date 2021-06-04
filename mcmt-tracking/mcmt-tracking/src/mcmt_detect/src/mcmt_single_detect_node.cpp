@@ -456,7 +456,7 @@ void McmtSingleDetectNode::detection_to_track_assignment_DCF()
 void McmtSingleDetectNode::compare_cost_matrices()
 {
 	// check to see if it is the case where there are no assignments in the current frame
-	if (assignments_kf_.size() == 0 && assignments_dcf_.size()) {
+	if (assignments_kf_.size() == 0 && assignments_dcf_.size() == 0) {
 			assignments_ = assignments_kf_;
 			unassigned_tracks_ = unassigned_tracks_kf_;
 			unassigned_detections_ = unassigned_detections_kf_;
@@ -494,6 +494,7 @@ void McmtSingleDetectNode::compare_cost_matrices()
 		// declare flags
 		bool different_flag;
 		bool different_assignment_flag;
+		bool already_assigned_flag;
 		std::vector<int> assigned_tracks;
 		std::vector<int> assigned_detections;
 
@@ -525,6 +526,8 @@ void McmtSingleDetectNode::compare_cost_matrices()
 			// condition: different_flag = false
 			if (different_flag == false) {
 				assignments_.push_back(dcf_assignment);
+				assigned_tracks.push_back(dcf_assignment[0]);
+				assigned_detections.push_back(dcf_assignment[1]);
 			}
 
 			// kf and dcf did not assign the same detection to track
@@ -535,12 +538,16 @@ void McmtSingleDetectNode::compare_cost_matrices()
 				// for this case, we will always go with dcf predictions
 				if (different_assignment_flag == true) {
 					assignments_.push_back(dcf_assignment);
+					assigned_tracks.push_back(dcf_assignment[0]);
+					assigned_detections.push_back(dcf_assignment[1]);
 				}
 				// dcf assigned the track to a detection, but the kf did not. 
 				// condition: different_flag = false, different_assignment_flag = false
 				// for this case, we will assign the track to the detection that the dcf assigned it to.
 				else {
 					assignments_.push_back(dcf_assignment);
+					assigned_tracks.push_back(dcf_assignment[0]);
+					assigned_detections.push_back(dcf_assignment[1]);
 				}
 			}
 		}
@@ -548,6 +555,7 @@ void McmtSingleDetectNode::compare_cost_matrices()
 		// iterate through every kf assignment. in this iteration, we will find for any tracks that
 		// the kf assigned, but the dcf did not
 		for (auto & kf_assignment : assignments_kf_) {
+			already_assigned_flag = false;
 			different_assignment_flag = false;
 
 			// interate through dcf assignments
@@ -570,11 +578,37 @@ void McmtSingleDetectNode::compare_cost_matrices()
 
 			// code block are for cases where dcf_assignment and kf_assignment are different, and
 			// that the kf assigned the track to a detection, but the dcf did not
-			if (different_assignment_flag == false) {
+			if (already_assigned_flag == false || different_assignment_flag == false) {
+				// check first to see if the detection is already part of an assignment
+				// if so, do not add it as it potentially results in multiple tracks assigned to a single detection
+				if (std::find(assigned_detections.begin(), assigned_detections.end(), kf_assignment[1]) != assigned_detections.end()) {
+					// existing assignment to this detection exists. since this is likely a crossover event, we prioritise KF
+					// look for confliction DCF assignment
+					for (auto & dcf_assignment : assignments_dcf_) {
+						if (kf_assignment[1] == dcf_assignment[1]) {
+							// once conflicting DCF assignment found, delete it from assignments
+							assignments_.erase(std::remove(assignments_.begin(), assignments_.end(), dcf_assignment), assignments_.end());
+							assigned_tracks.erase(std::remove(assigned_tracks.begin(), assigned_tracks.end(), dcf_assignment[0]), assigned_tracks.end());
+							assigned_detections.erase(std::remove(assigned_detections.begin(), assigned_detections.end(), dcf_assignment[1]), assigned_detections.end());
+							// attempt to assign conflicting track with prior KF assignment, if it exists
+							// otherwise, don't bother
+							for (auto & prior_kf_assignment : assignments_kf_) {
+								// check to ensure that the new assignment detection is unassigned
+								if (prior_kf_assignment[0] == dcf_assignment[0] && std::find(assigned_detections.begin(), assigned_detections.end(), prior_kf_assignment[1]) != assigned_detections.end()) {
+									assignments_.push_back(prior_kf_assignment);
+									assigned_tracks.push_back(prior_kf_assignment[0]);
+									assigned_detections.push_back(prior_kf_assignment[1]);
+									break;
+								}
+							}
+							break;
+						}
+					}
+				}
+				// update the KF assignment
 				assignments_.push_back(kf_assignment);
 				assigned_tracks.push_back(kf_assignment[0]);
 				assigned_detections.push_back(kf_assignment[1]);
-
 			}
 			// for the case where kf and dcf assigned the same track different detections (condition
 			// when different_assignment_flag = true), we will take the dcf assignments
