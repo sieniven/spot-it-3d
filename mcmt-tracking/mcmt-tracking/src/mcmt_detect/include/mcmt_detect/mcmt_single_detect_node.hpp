@@ -12,6 +12,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/ximgproc.hpp>
+#include <opencv2/xphoto.hpp>
 
 // ros2 header files
 #include <rclcpp/rclcpp.hpp>
@@ -100,7 +101,8 @@ class McmtSingleDetectNode : public rclcpp::Node {
 		float BACKGROUND_RATIO_, FGBG_LEARNING_RATE_, REMOVE_GROUND_ITER_, BACKGROUND_CONTOUR_CIRCULARITY_;
 
 		// declare sun compensation parameters
-		int BRIGHTNESS_THRES, SKY_THRES, SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN;
+		int BRIGHTNESS_THRES, SKY_THRES, SUN_BRIGHTNESS_GAIN;
+		float SUN_CONTRAST_GAIN;
 
 		// detector functions
 		void start_record();

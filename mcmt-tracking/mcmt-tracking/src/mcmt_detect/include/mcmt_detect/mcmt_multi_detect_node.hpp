@@ -78,7 +78,8 @@ class McmtMultiDetectNode : public rclcpp::Node {
 		float BACKGROUND_RATIO_, FGBG_LEARNING_RATE_, REMOVE_GROUND_ITER_, BACKGROUND_CONTOUR_CIRCULARITY_;
 
 		// declare sun compensation parameters
-		int BRIGHTNESS_THRES, SKY_THRES, SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN;
+		int BRIGHTNESS_THRES, SKY_THRES, SUN_BRIGHTNESS_GAIN;
+		float SUN_CONTRAST_GAIN;
 
 		// detector function
 		void start_record();

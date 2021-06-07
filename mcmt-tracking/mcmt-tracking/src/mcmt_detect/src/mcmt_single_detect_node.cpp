@@ -919,7 +919,7 @@ void McmtSingleDetectNode::get_parameters()
 	BACKGROUND_CONTOUR_CIRCULARITY_ = BACKGROUND_CONTOUR_CIRCULARITY_param.as_double();
 	BRIGHTNESS_THRES = BRIGHTNESS_THRES_param.as_int();
 	SKY_THRES = SKY_THRES_param.as_int();
-	SUN_CONTRAST_GAIN = SUN_CONTRAST_GAIN_param.as_int();
+	SUN_CONTRAST_GAIN = SUN_CONTRAST_GAIN_param.as_double();
 	SUN_BRIGHTNESS_GAIN = SUN_BRIGHTNESS_GAIN_param.as_int();
 
 	// initialize video parameters
