@@ -198,9 +198,11 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 	// The "non-sky" parts are then restored back to the frame for subsequent masking operations
 	if (average_brightness(cv::COLOR_BGR2HSV, 2) > BRIGHTNESS_THRES) {
 		extract_sky();
-		sky_.convertTo(sky_, -1, SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
+		float sun_contrast_gain = calc_sun_contrast_gain();
+		printf("Contrast Gain: %f\n", sun_contrast_gain);
+		sky_.convertTo(sky_, -1, sun_contrast_gain, SUN_BRIGHTNESS_GAIN);
 		cv::add(sky_, non_sky_, masked);
-		// cv::imshow("localised contrast frame", masked);
+		cv::imshow("localised contrast frame", masked);
 		// Resest the sky and non-sky for future iterations
 		sky_ = cv::Scalar(0,0,0);
 		non_sky_ = cv::Scalar(0,0,0);
@@ -243,6 +245,40 @@ void McmtSingleDetectNode::extract_sky()
 	// Retrieve original RGB images with extracted sky/non-sky using bitwise and
 	cv::bitwise_and(frame_, frame_, sky_, sky_temp);
 	cv::bitwise_and(frame_, frame_, non_sky_, non_sky_temp);
+}
+
+/**
+ * This function calculates the value of contrast gain to be used in sun compensation
+ * The gain is calculated based on the percentage of pixels in the sky that are white
+ * The more white areas, the lower the gain should be to reduce probability of saturation
+ */
+float McmtSingleDetectNode::calc_sun_contrast_gain()
+{
+	cv::Mat gray_sky, white;
+
+	// Convert the sky_ frame to grayscale to easily determine which pixels are white
+	cv::cvtColor(sky_, gray_sky, cv::COLOR_BGR2GRAY);
+	// cv::imshow("Gray sky", gray_sky);
+
+	// The total number of pixels in the sky (rest of the image is black)
+	float total_sky_pix = cv::countNonZero(gray_sky);
+
+	// Threshold the gray sky image to find the white pixels and put them in the "white" frame
+	// Empirical observation shows white pixels in sky typically have grayscale value > 175
+	auto lower = cv::Scalar(175);
+    auto upper = cv::Scalar(255);
+    cv::inRange(gray_sky, lower, upper, white);
+	// cv::imshow("White parts", white);
+
+	// Total number of white pixels in the sky
+	float white_sky_pix = cv::countNonZero(white);
+
+	// Percentage of sky pixels that are white, from 0 - 1
+	float white_sky_percent = white_sky_pix / total_sky_pix;
+
+	// Sun contrast gain (a) assumed to have negative linear relationship with white_sky_percent (N)
+	// At N = 0, a = max sun contrast gain; At N = 1, a = 1
+	return MAX_SUN_CONTRAST_GAIN - (MAX_SUN_CONTRAST_GAIN - 1) * white_sky_percent;
 }
 
 void McmtSingleDetectNode::detect_objects()
@@ -854,7 +890,7 @@ void McmtSingleDetectNode::declare_parameters()
 	// declare sun compensation parameters
 	this->declare_parameter("BRIGHTNESS_THRES");
 	this->declare_parameter("SKY_THRES");
-	this->declare_parameter("SUN_CONTRAST_GAIN");
+	this->declare_parameter("MAX_SUN_CONTRAST_GAIN");
 	this->declare_parameter("SUN_BRIGHTNESS_GAIN");
 }
 
@@ -894,7 +930,7 @@ void McmtSingleDetectNode::get_parameters()
 	// get sun compensation params
 	BRIGHTNESS_THRES_param = this->get_parameter("BRIGHTNESS_THRES");
 	SKY_THRES_param = this->get_parameter("SKY_THRES");
-	SUN_CONTRAST_GAIN_param = this->get_parameter("SUN_CONTRAST_GAIN");
+	MAX_SUN_CONTRAST_GAIN_param = this->get_parameter("MAX_SUN_CONTRAST_GAIN");
 	SUN_BRIGHTNESS_GAIN_param = this->get_parameter("SUN_BRIGHTNESS_GAIN");
 
 	// initialize and get the parameter values
@@ -919,7 +955,7 @@ void McmtSingleDetectNode::get_parameters()
 	BACKGROUND_CONTOUR_CIRCULARITY_ = BACKGROUND_CONTOUR_CIRCULARITY_param.as_double();
 	BRIGHTNESS_THRES = BRIGHTNESS_THRES_param.as_int();
 	SKY_THRES = SKY_THRES_param.as_int();
-	SUN_CONTRAST_GAIN = SUN_CONTRAST_GAIN_param.as_double();
+	MAX_SUN_CONTRAST_GAIN = MAX_SUN_CONTRAST_GAIN_param.as_double();
 	SUN_BRIGHTNESS_GAIN = SUN_BRIGHTNESS_GAIN_param.as_int();
 
 	// initialize video parameters
