@@ -191,21 +191,10 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 {
 	cv::Mat masked, converted_mask;
 
-	// When there is sunlight reflecting off the target, target becomes white and "blends" into sky
-	// Thus, sun compensation is applied when the sunlight level is above a certain threshold
-	// Increasing contrast of the frame solves the issue but generates false positives among treeline
-	// Instead, the sky is extracted from the frame, and a localised contrast increase applied to it
-	// The "non-sky" parts are then restored back to the frame for subsequent masking operations
+	// Apply sun compensation when the sunlight level is above a certain threshold
 	if (average_brightness(cv::COLOR_BGR2HSV, 2) > BRIGHTNESS_THRES) {
-		extract_sky();
-		float sun_contrast_gain = calc_sun_contrast_gain();
-		printf("Contrast Gain: %f\n", sun_contrast_gain);
-		sky_.convertTo(sky_, -1, sun_contrast_gain, SUN_BRIGHTNESS_GAIN);
-		cv::add(sky_, non_sky_, masked);
+		masked = apply_sun_compensation();
 		cv::imshow("localised contrast frame", masked);
-		// Resest the sky and non-sky for future iterations
-		sky_ = cv::Scalar(0,0,0);
-		non_sky_ = cv::Scalar(0,0,0);
 	}
 	else {
 		// When sun compensation is not active, a simple contrast change is applied to the frame
@@ -220,31 +209,43 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 }
 
 /**
- * This function takes in a frame, and convert them into two frames
- * One contains the sky while the other contains non-sky components
- * This is part of the sun compensation algorithm.
+ * Apply sun compensation on frame and return the sun compensated frame.
+ * Sun compensation is needed when there is sunlight illuminating the target and making
+ * it "blend" into sky. Increasing contrast of the entire frame is a solution, but it
+ * generates false positives among treeline. Instead, sun compensation works by applying
+ * localised contrast increaseing to regions of the frame identified as sky
  */
-void McmtSingleDetectNode::extract_sky()
+cv::Mat McmtSingleDetectNode::apply_sun_compensation()
 {
-	cv::Mat hsv, sky_temp, non_sky_temp;
+	cv::Mat hsv, sky, non_sky, sky_temp, non_sky_temp, result;
 	
-	// Convert image from RGB to HSV
+	// Get HSV version of the frame
 	cv::cvtColor(frame_, hsv, cv::COLOR_BGR2HSV);
 
-	// Threshold the HSV image to extract the sky and put it in sky_ frame
+	// Threshold the HSV image to extract the sky and put it in sky frame
 	// The lower bound of V for clear, sunlit sky is given in SKY_THRES
 	auto lower = cv::Scalar(0, 0, SKY_THRES);
 	auto upper = cv::Scalar(180, 255, 255);
 	cv::inRange(hsv, lower, upper, sky_temp);
 
-	// Also extract the non-sky component and put it in non_sky_ frame
+	// Also extract the non-sky component and put it in non_sky frame
 	lower = cv::Scalar(0, 0, 0);
 	upper = cv::Scalar(180, 255, SKY_THRES);
 	cv::inRange(hsv, lower, upper, non_sky_temp);
 
 	// Retrieve original RGB images with extracted sky/non-sky using bitwise and
-	cv::bitwise_and(frame_, frame_, sky_, sky_temp);
-	cv::bitwise_and(frame_, frame_, non_sky_, non_sky_temp);
+	cv::bitwise_and(frame_, frame_, sky, sky_temp);
+	cv::bitwise_and(frame_, frame_, non_sky, non_sky_temp);
+
+	// Calculate sun contrast gain
+	float sun_contrast_gain = calc_sun_contrast_gain(sky);
+	printf("Contrast Gain: %f\n", sun_contrast_gain);
+	sky.convertTo(sky, -1, sun_contrast_gain, SUN_BRIGHTNESS_GAIN);
+
+	// Recombine the sky and non sky
+	cv::add(sky, non_sky, result);
+
+	return result;
 }
 
 /**
@@ -252,12 +253,12 @@ void McmtSingleDetectNode::extract_sky()
  * The gain is calculated based on the percentage of pixels in the sky that are white
  * The more white areas, the lower the gain should be to reduce probability of saturation
  */
-float McmtSingleDetectNode::calc_sun_contrast_gain()
+float McmtSingleDetectNode::calc_sun_contrast_gain(cv::Mat sky)
 {
 	cv::Mat gray_sky, white;
 
 	// Convert the sky_ frame to grayscale to easily determine which pixels are white
-	cv::cvtColor(sky_, gray_sky, cv::COLOR_BGR2GRAY);
+	cv::cvtColor(sky, gray_sky, cv::COLOR_BGR2GRAY);
 	// cv::imshow("Gray sky", gray_sky);
 
 	// The total number of pixels in the sky (rest of the image is black)

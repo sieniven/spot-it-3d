@@ -43,7 +43,7 @@ class McmtSingleDetectNode : public rclcpp::Node {
 
 		// declare video parameters
     cv::VideoCapture cap_;
-		cv::Mat frame_, masked_, color_converted_, mask_, element_, removebg_, sky_, non_sky_;
+		cv::Mat frame_, masked_, color_converted_, mask_, element_, removebg_;
 		std::string video_input_;
     int frame_w_, frame_h_, fps_, frame_id_, next_id_;
 		float scale_factor_, aspect_ratio_;
@@ -120,8 +120,8 @@ class McmtSingleDetectNode : public rclcpp::Node {
 		void detect_objects();
 		cv::Mat remove_ground();
 		cv::Mat apply_bg_subtractions();
-		void extract_sky();
-		float calc_sun_contrast_gain();
+		cv::Mat apply_sun_compensation();
+		float calc_sun_contrast_gain(cv::Mat sky);
 		void predict_new_locations_of_tracks();
 		void detection_to_track_assignment_KF();
 		void detection_to_track_assignment_DCF();
