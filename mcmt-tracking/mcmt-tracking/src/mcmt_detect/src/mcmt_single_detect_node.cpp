@@ -213,36 +213,36 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
  * Sun compensation is needed when there is sunlight illuminating the target and making
  * it "blend" into sky. Increasing contrast of the entire frame is a solution, but it
  * generates false positives among treeline. Instead, sun compensation works by applying
- * localised contrast increaseing to regions of the frame identified as sky
+ * localised contrast increase to regions of the frame identified as sky
  */
 cv::Mat McmtSingleDetectNode::apply_sun_compensation()
 {
-	cv::Mat hsv, sky, non_sky, sky_temp, non_sky_temp, result;
+	cv::Mat hsv, sky, non_sky, mask, result;
 	
 	// Get HSV version of the frame
 	cv::cvtColor(frame_, hsv, cv::COLOR_BGR2HSV);
 
 	// Threshold the HSV image to extract the sky and put it in sky frame
 	// The lower bound of V for clear, sunlit sky is given in SKY_THRES
+	// Conversion back to RGB is done using bitwise and
 	auto lower = cv::Scalar(0, 0, SKY_THRES);
 	auto upper = cv::Scalar(180, 255, 255);
-	cv::inRange(hsv, lower, upper, sky_temp);
+	cv::inRange(hsv, lower, upper, mask);
+	cv::bitwise_and(frame_, frame_, sky, mask);
+	// cv::imshow("sky", sky);
 
-	// Also extract the non-sky component and put it in non_sky frame
-	lower = cv::Scalar(0, 0, 0);
-	upper = cv::Scalar(180, 255, SKY_THRES);
-	cv::inRange(hsv, lower, upper, non_sky_temp);
-
-	// Retrieve original RGB images with extracted sky/non-sky using bitwise and
-	cv::bitwise_and(frame_, frame_, sky, sky_temp);
-	cv::bitwise_and(frame_, frame_, non_sky, non_sky_temp);
+	// Extract the treeline and put it in non_sky frame
+	// The mask for the treeline is the inversion of the sky mask
+	cv::bitwise_not(mask, mask);
+	cv::bitwise_and(frame_, frame_, non_sky, mask);
+	// cv::imshow("non sky", non_sky);
 
 	// Calculate sun contrast gain
 	float sun_contrast_gain = calc_sun_contrast_gain(sky);
-	printf("Contrast Gain: %f\n", sun_contrast_gain);
+	// printf("Contrast Gain: %f\n", sun_contrast_gain);
 	sky.convertTo(sky, -1, sun_contrast_gain, SUN_BRIGHTNESS_GAIN);
 
-	// Recombine the sky and non sky
+	// Recombine the sky and treeline
 	cv::add(sky, non_sky, result);
 
 	return result;
