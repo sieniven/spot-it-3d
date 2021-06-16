@@ -47,7 +47,7 @@ class MultiTrackerNode(Node):
 		
 		self.recording = cv2.VideoWriter(self.output_vid_path,
 										cv2.VideoWriter_fourcc(*'mp4v'),
-										self.fps, (self.frame_w, self.frame_h))
+										self.fps, (self.frame_w * 2, self.frame_h))
 		cap.release()
 
 		# data from detector
@@ -87,7 +87,6 @@ class MultiTrackerNode(Node):
 		# prevent unused variable warning
 		self.detect_sub
 
-
 	def declare_mcmt_parameters(self):
 		"""
 		This function declares our mcmt software parameters as ROS2 parameters
@@ -95,8 +94,6 @@ class MultiTrackerNode(Node):
 		self.declare_parameter('IS_REALTIME')
 		self.declare_parameter('VIDEO_INPUT_1')
 		self.declare_parameter('VIDEO_INPUT_2')
-		self.declare_parameter('CAMERA_INDEX_1')
-		self.declare_parameter('CAMERA_INDEX_2')
 		self.declare_parameter('FRAME_WIDTH')
 		self.declare_parameter('FRAME_HEIGHT')
 		self.declare_parameter('OUTPUT_VIDEO_PATH')
@@ -110,7 +107,6 @@ class MultiTrackerNode(Node):
 		"""
 		# get camera parameters
 		self.is_realtime = self.get_parameter('IS_REALTIME').value
-		self.cam_indexes = [self.get_parameter('CAMERA_INDEX_1').value, self.get_parameter('CAMERA_INDEX_2').value]
 
 		if self.is_realtime:
 			self.filenames = [int(self.get_parameter('VIDEO_INPUT_1').value), int(self.get_parameter('VIDEO_INPUT_2').value)]
@@ -143,13 +139,19 @@ class MultiTrackerNode(Node):
 		self.filter_good_tracks[0] = list(self.good_tracks[0])
 		self.filter_good_tracks[1] = list(self.good_tracks[1])
 		
-		for i in range(2):
-			self.update_cumulative_tracks(i)
+		self.update_cumulative_tracks(0)
+		self.update_cumulative_tracks(1)
 
 		self.process_new_tracks(0, 1)
 		self.process_new_tracks(1, 0)
 
+		self.verify_existing_tracks(0, 1)
+		self.verify_existing_tracks(1, 0)
+
 		self.calculate_3D()
+
+		self.prune_tracks(0)
+		self.prune_tracks(1)
 
 		# plotting track plot trajectories into frame
 		for frame in range(2):
@@ -256,6 +258,68 @@ class MultiTrackerNode(Node):
 				self.cumulative_tracks[index].track_new_plots[track_id] = TrackPlot(track_id)
 				self.matching_dict[index][track_id] = track_id
 
+	def prune_tracks(self, index):
+
+		prune = []
+
+		# Prune dead tracks if they have not appeared for more than 300 frames
+		for track_id, track in self.cumulative_tracks[index].track_new_plots.items():
+			if self.frame_count - track.lastSeen > 60:
+				prune.append(track_id)
+
+		for track_id in prune:
+			self.cumulative_tracks[index].track_new_plots.pop(track_id)
+			self.matching_dict[index].pop(track_id)
+			print(f"{track_id} pruned")
+
+
+	def verify_existing_tracks(self, index, alt):
+		"""
+		Checks matched tracks to see if they are still valid. Also checks if multiple tracks within each camera are tracking the same target.
+		"""
+
+		matched_ids = list(set(self.cumulative_tracks[0].track_plots.keys()).intersection(self.cumulative_tracks[1].track_plots.keys()))
+
+		for matched_id in matched_ids:
+			track_plot_0 = self.cumulative_tracks[0].track_plots[matched_id]
+			track_plot_1 = self.cumulative_tracks[1].track_plots[matched_id]
+
+			# normalization of cross correlation values
+			track_plot_normalize_xj = self.normalise_track_plot(track_plot_0)
+			alt_track_plot_normalize_xj = self.normalise_track_plot(track_plot_1)
+
+			# track feature variable correlation strength
+			r_value = max(np.correlate(track_plot_normalize_xj,
+										alt_track_plot_normalize_xj, mode='full'))
+
+			# heading deviation error score
+			heading_err = self.heading_error(track_plot_0, track_plot_1, 30)
+
+			if (r_value < 0.4 and heading_err > 0.1 and track_plot_0.frameNos.size > 180 and track_plot_1.frameNos.size > 180) or (track_plot_0.check_stationary() != track_plot_1.check_stationary()):
+				track_plot_0.mismatch_count += 1
+				track_plot_1.mismatch_count += 1
+
+			else:
+				track_plot_0.mismatch_count = 0
+				track_plot_1.mismatch_count = 0
+
+			if track_plot_0.mismatch_count >= 30 and track_plot_1.mismatch_count >= 30:
+
+				track_plot_0.mismatch_count = 0
+				track_plot_1.mismatch_count = 0
+
+				original_track_id_0 = [k for k, v in self.matching_dict[0].items() if v == track_plot_0.id][0]
+				original_track_id_1 = [k for k, v in self.matching_dict[1].items() if v == track_plot_1.id][0]
+
+				track_plot_0.id = original_track_id_0
+				track_plot_1.id = original_track_id_1
+
+				self.cumulative_tracks[0].track_new_plots[original_track_id_0] = self.cumulative_tracks[0].track_plots.pop(matched_id)
+				self.cumulative_tracks[1].track_new_plots[original_track_id_1] = self.cumulative_tracks[1].track_plots.pop(matched_id)
+
+				self.matching_dict[0][original_track_id_0] = original_track_id_0
+				self.matching_dict[1][original_track_id_1] = original_track_id_1
+
 
 	def process_new_tracks(self, index, alt):
 		"""
@@ -332,7 +396,7 @@ class MultiTrackerNode(Node):
 
 		for x in self.filter_good_tracks[index]:
 			
-			maxValues = {}
+			maxValues = corrValues[x[0]]
 			maxID = -1
 			global_max_flag = 0
 
@@ -340,8 +404,11 @@ class MultiTrackerNode(Node):
 			# cross correlation value with another track in current camera
 
 			while global_max_flag == 0 and len(corrValues[x[0]]) != 0:
-				maxID = max(corrValues[x[0]])
-				maxValue = corrValues[x[0]][maxID]
+				# maxID = max(corrValues[x[0]])
+				maxID = max(maxValues)
+
+				# maxValue = corrValues[x[0]][maxID]
+				maxValue = maxValues[maxID]
 
 				# search through current camera's tracks again, for the selected track that we wish to re-id with.
 				# we can note that if there is a track in the current camera that has a higher cross correlation value
@@ -361,8 +428,6 @@ class MultiTrackerNode(Node):
 					global_max_flag = 2
 
 			if global_max_flag == 2:  # re-id process
-
-				print("matching")
 
 				# if track is in 2nd camera's new track list
 				if maxID != -1 and maxID in self.cumulative_tracks[alt].track_new_plots.keys():
@@ -387,7 +452,6 @@ class MultiTrackerNode(Node):
 					
 					# update dictionary matching list
 					self.matching_dict[index][track_id] = self.next_id
-
 					self.next_id += 1
 
 				# if track is in 2nd camera's matched track list
@@ -400,15 +464,22 @@ class MultiTrackerNode(Node):
 					# check this
 					combine_track_plots(track_plot.id, self.cumulative_tracks[index], track_plot, self.frame_count)
 
-					# remove track plot in new tracks' list
-					self.cumulative_tracks[index].track_new_plots.pop(track_id)
-
 					# update dictionary matching list
+					for old_id, matched_id in self.matching_dict[index].items(): 
+						if matched_id == track_plot.id:
+							# return old plot to new tracks
+							self.matching_dict[index][old_id] = old_id
+							self.cumulative_tracks[index].track_new_plots[old_id] = self.cumulative_tracks[index].track_plots[matched_id]
+							self.cumulative_tracks[index].track_new_plots[old_id].id = old_id
+							break
+					
+					# remove track plot in new tracks' list
+					self.cumulative_tracks[index].track_plots[track_plot.id] = track_plot
+					self.cumulative_tracks[index].track_new_plots.pop(track_id)
 					self.matching_dict[index][track_id] = track_plot.id
 
 		for remove_id in removeSet:
 			self.cumulative_tracks[alt].track_new_plots.pop(remove_id)
-
 
 	def get_total_number_of_tracks(self):
 		"""
@@ -416,7 +487,6 @@ class MultiTrackerNode(Node):
 		"""
 		self.total_tracks[0] = len(self.cumulative_tracks[0].track_new_plots) + len(self.cumulative_tracks[0].track_plots)
 		self.total_tracks[1] = len(self.cumulative_tracks[1].track_new_plots) + len(self.cumulative_tracks[1].track_plots)
-
 
 	def normalise_track_plot(self, track_plot):
 		"""
@@ -444,35 +514,33 @@ class MultiTrackerNode(Node):
 		geometric_strength = self.geometric_similarity(track_plot.other_tracks, alt_track_plot.other_tracks)
 
 		# heading deviation error score
-		heading_err = self.heading_error_relative(track_plot, alt_track_plot)
+		heading_err = self.heading_error(track_plot, alt_track_plot, 30)
 
-		if r_value > 0.5 and (geometric_strength == 0 or geometric_strength >= 2) and heading_err < 0.05:
-			return r_value * (1 - heading_err)
+		w1, w2, w3 = (0.3, 0.4, 0.3)
+		score = (w1 * r_value) + (w2 * geometric_strength) + (w3 * (1 - heading_err))
+
+		if r_value > 0.4 and (geometric_strength == 0 or geometric_strength >= 0.5) and heading_err < 0.1:
+			return score
 		else:
 			return 0
-			
+
 	def geometric_similarity(self, other_tracks_0, other_tracks_1):
 		
-		relative_strength = 0
-		count = 0
+		relative_distances = []
+		shortest_distances = []
 		for a_polar in other_tracks_0:
 			(a_angle, a_dist) = a_polar
+			relative_distances = []
 			for b_polar in other_tracks_1:
 				(b_angle, b_dist) = b_polar
 				
-				delta_angle = (a_angle - b_angle) / (2 * math.pi)
-				angle_factor = 1 / (delta_angle * delta_angle) 
-				dist_factor = min(a_dist, b_dist) / max(a_dist, b_dist)
+				relative_distances.append((min(abs(a_angle - b_angle), (2 * math.pi) - abs(a_angle - b_angle))) / math.pi * min(a_dist / b_dist, b_dist / a_dist))
+			
+			if len(relative_distances) > 0:
+				shortest_distances.append(min(relative_distances))
 
-				if (a_dist < 500 and b_dist < 500):
-					relative_strength += angle_factor * pow(dist_factor, 4)
-				else:
-					relative_strength += angle_factor * pow(dist_factor, 4) * (100 / (max(a_dist, b_dist) - 400))
-				
-				count += 1
-		
-		if count > 0:
-			return math.log(relative_strength / count, 10)
+		if len(shortest_distances) > 0:
+			return max(0, 0.1 - np.mean(shortest_distances)) * 10
 		else:
 			return 0
 
@@ -511,23 +579,7 @@ class MultiTrackerNode(Node):
 		else: 
 			return math.log(relative_strength / count, 10)
 
-	
-	def heading_error(self, track_plot, alt_track_plot):
-		for i in range(-1,-29,-1):
-			dx_0 = track_plot.xs[i] - track_plot.xs[i-1]
-			dy_0 = track_plot.ys[i] - track_plot.ys[i-1]
-			angle_0 = math.atan2(dy_0, dx_0)
-
-			dx_1 = alt_track_plot.xs[i] - alt_track_plot.xs[i-1]
-			dy_1 = alt_track_plot.ys[i] - alt_track_plot.ys[i-1]
-			angle_1 = math.atan2(dy_1, dx_1)
-
-			if (abs(angle_0 - angle_1) / (2 * math.pi) > 0.2):
-				return False
-		
-		return True
-
-	def heading_error_relative(self, track_plot, alt_track_plot):
+	def heading_error(self, track_plot, alt_track_plot, history):
 		
 		deviation = 0
 
@@ -540,7 +592,7 @@ class MultiTrackerNode(Node):
 		rotation_1 = (math.atan2(dy_1, dx_1) + math.pi) / (2 * math.pi)
 
 		
-		for i in range(-2,-29,-1):
+		for i in range(-2, 1-history,-1):
 			dx_0 = track_plot.xs[i] - track_plot.xs[i-1]
 			dy_0 = track_plot.ys[i] - track_plot.ys[i-1]
 			angle_0 = (math.atan2(dy_0, dx_0) + math.pi) / (2 * math.pi)
@@ -576,7 +628,9 @@ class MultiTrackerNode(Node):
 
 		epsilon = 7
 
-		for matched_id in self.cumulative_tracks[0].track_plots.keys():
+		matched_ids = list(set(self.cumulative_tracks[0].track_plots.keys()).intersection(self.cumulative_tracks[1].track_plots.keys()))
+
+		for matched_id in matched_ids:
 			track_plot_0 = self.cumulative_tracks[0].track_plots[matched_id]
 			track_plot_1 = self.cumulative_tracks[1].track_plots[matched_id]
 

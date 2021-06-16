@@ -92,7 +92,6 @@ class SingleTrackerNode(Node):
 		"""
 		self.declare_parameter('IS_REALTIME')
 		self.declare_parameter('VIDEO_INPUT')
-		self.declare_parameter('CAMERA_INDEX')
 		self.declare_parameter('FRAME_WIDTH')
 		self.declare_parameter('FRAME_HEIGHT')
 		self.declare_parameter('OUTPUT_VIDEO_PATH')
