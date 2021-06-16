@@ -243,13 +243,13 @@ cv::Mat McmtSingleDetectNode::apply_sun_compensation()
 	upper = cv::Scalar(255, 255, 255);
 	cv::inRange(sky, lower, upper, mask);
 	cv::bitwise_and(sky, sky, blue, mask);
-	cv::imshow("Blue", blue);
+	// cv::imshow("Blue", blue);
 	cv::bitwise_not(mask, mask);
 	cv::bitwise_and(sky, sky, non_blue, mask);
-	cv::imshow("Non Blue", non_blue);
+	// cv::imshow("Non Blue", non_blue);
 
 	// Apply localised contrast change to blue parts of sky
-	bool white = 0;
+	bool white = 1;
 	if (white){
 		// 1st method: Set all blue regions to white (i.e. max out the contrast)
 		// Then perform erosion of white areas to increase size of non-white blobs

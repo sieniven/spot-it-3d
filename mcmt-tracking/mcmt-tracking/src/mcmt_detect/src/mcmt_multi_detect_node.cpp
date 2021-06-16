@@ -163,21 +163,12 @@ cv::Mat McmtMultiDetectNode::apply_bg_subtractions(std::shared_ptr<mcmt::Camera>
 {
 	cv::Mat masked, converted_mask;
 
-	// When there is sunlight reflecting off the target, target becomes white and "blends" into sky
-	// Thus, sun compensation is applied when the sunlight level is above a certain threshold
-	// Increasing contrast of the frame solves the issue but generates false positives among treeline
-	// Instead, the sky is extracted from the frame, and a localised contrast increase applied to it
-	// The "non-sky" parts are then restored back to the frame for subsequent masking operations
+	// Apply sun compensation when the sunlight level is above a certain threshold
 	if (average_brightness(camera, cv::COLOR_BGR2HSV, 2) > BRIGHTNESS_THRES) {
-		extract_sky(camera);
-		camera->sky_.convertTo(camera->sky_, -1, SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
-		cv::add(camera->sky_, camera->non_sky_, masked);
-		// cv::imshow("localised contrast frame", masked);
-		// Resest the sky and non-sky for future iterations
-		camera->sky_ = cv::Scalar(0,0,0);
-		camera->non_sky_ = cv::Scalar(0,0,0);
+		masked = apply_sun_compensation(camera);
+		cv::imshow("localised contrast frame", masked);
 	}
-	else{
+	else {
 		// When sun compensation is not active, a simple contrast change is applied to the frame
 		cv::convertScaleAbs(camera->frame_, masked);
 	}
@@ -190,31 +181,102 @@ cv::Mat McmtMultiDetectNode::apply_bg_subtractions(std::shared_ptr<mcmt::Camera>
 }
 
 /**
- * This function takes in a frame, and convert them into two frames
- * One contains the sky while the other contains non-sky components
- * This is part of the sun compensation algorithm.
+ * Apply sun compensation on frame and return the sun compensated frame.
+ * Sun compensation is needed when there is sunlight illuminating the target and making
+ * it "blend" into sky. Increasing contrast of the entire frame is a solution, but it
+ * generates false positives among treeline. Instead, sun compensation works by applying
+ * localised contrast increase to regions of the frame identified as sky
  */
-void McmtMultiDetectNode::extract_sky(std::shared_ptr<mcmt::Camera> & camera)
+cv::Mat McmtMultiDetectNode::apply_sun_compensation(std::shared_ptr<mcmt::Camera> & camera)
 {
-	cv::Mat hsv, sky_temp, non_sky_temp;
+	cv::Mat hsv, sky, non_sky, mask, result;
 	
-	// Convert image from RGB to HSV
+	// Get HSV version of the frame
 	cv::cvtColor(camera->frame_, hsv, cv::COLOR_BGR2HSV);
 
-	// Threshold the HSV image to extract the sky and put it in sky_ frame
+	// Threshold the HSV image to extract the sky and put it in sky frame
 	// The lower bound of V for clear, sunlit sky is given in SKY_THRES
+	// Conversion back to RGB is done using bitwise and
 	auto lower = cv::Scalar(0, 0, SKY_THRES);
 	auto upper = cv::Scalar(180, 255, 255);
-	cv::inRange(hsv, lower, upper, sky_temp);
+	cv::inRange(hsv, lower, upper, mask);
+	cv::bitwise_and(camera->frame_, camera->frame_, sky, mask);
+	// cv::imshow("sky", sky);
 
-	// Also extract the non-sky component and put it in non_sky_ frame
-	lower = cv::Scalar(0, 0, 0);
-	upper = cv::Scalar(180, 255, SKY_THRES);
-	cv::inRange(hsv, lower, upper, non_sky_temp);
+	// Extract the treeline and put it in non_sky frame
+	// The mask for the treeline is the inversion of the sky mask
+	cv::bitwise_not(mask, mask);
+	cv::bitwise_and(camera->frame_, camera->frame_, non_sky, mask);
+	// cv::imshow("non sky", non_sky);
 
-	// Retrieve original RGB images with extracted sky/non-sky using bitwise and
-	cv::bitwise_and(camera->frame_, camera->frame_, camera->sky_, sky_temp);
-	cv::bitwise_and(camera->frame_, camera->frame_, camera->non_sky_, non_sky_temp);
+	// Separate sky into blue and non-blue components using same thresholding method as above
+	cv::Mat blue, non_blue;
+	lower = cv::Scalar(120, 0, 0);
+	upper = cv::Scalar(255, 255, 255);
+	cv::inRange(sky, lower, upper, mask);
+	cv::bitwise_and(sky, sky, blue, mask);
+	// cv::imshow("Blue", blue);
+	cv::bitwise_not(mask, mask);
+	cv::bitwise_and(sky, sky, non_blue, mask);
+	// cv::imshow("Non Blue", non_blue);
+
+	// Apply localised contrast change to blue parts of sky
+	bool white = 1;
+	if (white){
+		// 1st method: Set all blue regions to white (i.e. max out the contrast)
+		// Then perform erosion of white areas to increase size of non-white blobs
+		// Remmeber to invert back the mask because it was inverted for non-blue previously...
+		cv::bitwise_not(mask, mask);
+		blue.setTo(cv::Scalar(255, 255, 255), mask);
+		cv::erode(blue, blue, cv::getStructuringElement(0, cv::Size(10,10)));
+	}
+	else{
+		// 2nd method: Apply contrast increase
+		// float sun_contrast_gain = calc_sun_contrast_gain(sky);
+		// printf("Contrast Gain: %f\n", sun_contrast_gain);
+		// sky.convertTo(sky, -1, sun_contrast_gain, SUN_BRIGHTNESS_GAIN);
+		blue.convertTo(blue, -1, MAX_SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
+	}
+
+	// Recombine the sky and treeline
+	cv::add(blue, non_blue, sky);
+	cv::add(sky, non_sky, result);
+
+	return result;
+}
+
+/**
+ * This function calculates the value of contrast gain to be used in sun compensation
+ * The gain is calculated based on the percentage of pixels in the sky that are white
+ * The more white areas, the lower the gain should be to reduce probability of saturation
+ */
+float McmtMultiDetectNode::calc_sun_contrast_gain(cv::Mat sky)
+{
+	cv::Mat gray_sky, white;
+
+	// Convert the sky_ frame to grayscale to easily determine which pixels are white
+	cv::cvtColor(sky, gray_sky, cv::COLOR_BGR2GRAY);
+	// cv::imshow("Gray sky", gray_sky);
+
+	// The total number of pixels in the sky (rest of the image is black)
+	float total_sky_pix = cv::countNonZero(gray_sky);
+
+	// Threshold the gray sky image to find the white pixels and put them in the "white" frame
+	// Empirical observation shows white pixels in sky typically have grayscale value > 175
+	auto lower = cv::Scalar(175);
+    auto upper = cv::Scalar(255);
+    cv::inRange(gray_sky, lower, upper, white);
+	// cv::imshow("White parts", white);
+
+	// Total number of white pixels in the sky
+	float white_sky_pix = cv::countNonZero(white);
+
+	// Percentage of sky pixels that are white, from 0 - 1
+	float white_sky_percent = white_sky_pix / total_sky_pix;
+
+	// Sun contrast gain (a) assumed to have negative linear relationship with white_sky_percent (N)
+	// At N = 0, a = max sun contrast gain; At N = 1, a = 1
+	return MAX_SUN_CONTRAST_GAIN - (MAX_SUN_CONTRAST_GAIN - 1) * white_sky_percent;
 }
 
 void McmtMultiDetectNode::detect_objects(std::shared_ptr<mcmt::Camera> & camera)
@@ -860,7 +922,7 @@ void McmtMultiDetectNode::declare_parameters()
 	// declare sun compensation parameters
 	this->declare_parameter("BRIGHTNESS_THRES");
 	this->declare_parameter("SKY_THRES");
-	this->declare_parameter("SUN_CONTRAST_GAIN");
+	this->declare_parameter("MAX_SUN_CONTRAST_GAIN");
 	this->declare_parameter("SUN_BRIGHTNESS_GAIN");
 }
 
@@ -901,7 +963,7 @@ void McmtMultiDetectNode::get_parameters()
 	// get sun compensation params
 	BRIGHTNESS_THRES_param = this->get_parameter("BRIGHTNESS_THRES");
 	SKY_THRES_param = this->get_parameter("SKY_THRES");
-	SUN_CONTRAST_GAIN_param = this->get_parameter("SUN_CONTRAST_GAIN");
+	MAX_SUN_CONTRAST_GAIN_param = this->get_parameter("MAX_SUN_CONTRAST_GAIN");
 	SUN_BRIGHTNESS_GAIN_param = this->get_parameter("SUN_BRIGHTNESS_GAIN");
 
 	// initialize and get the parameter values
@@ -926,7 +988,7 @@ void McmtMultiDetectNode::get_parameters()
 	BACKGROUND_CONTOUR_CIRCULARITY_ = BACKGROUND_CONTOUR_CIRCULARITY_param.as_double();
 	BRIGHTNESS_THRES = BRIGHTNESS_THRES_param.as_int();
 	SKY_THRES = SKY_THRES_param.as_int();
-	SUN_CONTRAST_GAIN = SUN_CONTRAST_GAIN_param.as_double();
+	MAX_SUN_CONTRAST_GAIN = MAX_SUN_CONTRAST_GAIN_param.as_double();
 	SUN_BRIGHTNESS_GAIN = SUN_BRIGHTNESS_GAIN_param.as_int();
 
 	// initialize video parameters
