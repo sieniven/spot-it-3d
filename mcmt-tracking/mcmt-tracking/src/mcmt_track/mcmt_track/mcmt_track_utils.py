@@ -27,6 +27,7 @@ class TrackPlot:
         self.pace = np.array([])
         self.track_feature_variable = np.array([])
         self.other_tracks = []
+        self.mismatch_count = 0
 
         self.xyz = None
 
@@ -100,6 +101,17 @@ class TrackPlot:
                 # self.track_feature_variable = np.append(self.track_feature_variable, track_feature_variable)
                 self.track_feature_variable = np.append(self.track_feature_variable, pace)
 
+    def check_stationary(self):
+        
+        distance = 0
+        
+        for i in range(-1, -9 ,-1):
+            dx = self.xs[i] - self.xs[i-1]
+            dy = self.ys[i] - self.ys[i-1]
+
+            distance += math.hypot(dx, dy)
+
+        return (distance / 9 < 3)
 
     def update_other_tracks(self, cumulative_tracks):
         
