@@ -17,6 +17,7 @@
 #include <memory>
 #include <algorithm>
 #include <functional>
+#include <eigen.h>
 
 using namespace mcmt;
 
