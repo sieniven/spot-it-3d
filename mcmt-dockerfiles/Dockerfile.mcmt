@@ -60,7 +60,9 @@ RUN python3 -m pip install setuptools
 
 # copy mcmt-tracking repository into Docker container, and install dependencies
 RUN mkdir -p spot-it-3d/mcmt-tracking/
+RUN mkdir -p spot-it-3d/mcmt-tracking/footage
 COPY --chown=${user} ./mcmt-tracking/ spot-it-3d/mcmt-tracking/
+COPY --chown=${user} ./footage/ spot-it-3d/mcmt-tracking/footage
 RUN python3 -m pip install -r ./spot-it-3d/mcmt-tracking/bin/requirements.txt
 
 # update .bashrc for bash interactive mode

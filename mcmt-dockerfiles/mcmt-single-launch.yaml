@@ -7,13 +7,11 @@ services:
       context: ..
     image: spotit3d/mcmt:mcmt
     network_mode: "host"
-    devices:
-      - "/dev/video0:/dev/video0"
-      - "/dev/video2:/dev/video2"
     environment:
-      - DISPLAY=unix$DISPLAY
+      - DISPLAY=172.24.128.1:0.0
     volumes:
-      - /home/mcmt/mcmt-docker/
+      # - /home/mcmt/mcmt-docker/
+      - ../data:/home/mcmt/spot-it-3d/data
     stop_signal: SIGINT
     command: bash -c "cd spot-it-3d/mcmt-tracking/bin && sleep 5 && ./mcmt_single_detector.sh"
   
@@ -23,12 +21,10 @@ services:
       context: ..
     image: spotit3d/mcmt:mcmt
     network_mode: "host"
-    devices:
-      - "/dev/video0:/dev/video0"
-      - "/dev/video2:/dev/video2"
     environment:
-      - DISPLAY=unix$DISPLAY
+      - DISPLAY=172.24.128.1:0.0
     volumes:
-      - /home/mcmt/mcmt-docker/
+      # - /home/mcmt/mcmt-docker/
+      - ../data:/home/mcmt/spot-it-3d/data
     stop_signal: SIGINT
     command: bash -c "cd spot-it-3d/mcmt-tracking/bin && ./mcmt_single_track.sh"
