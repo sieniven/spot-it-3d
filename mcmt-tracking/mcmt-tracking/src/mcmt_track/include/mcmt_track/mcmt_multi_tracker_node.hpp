@@ -26,6 +26,7 @@
 #include <mcmt_msg/msg/multi_detection_info.hpp>
 
 #include <string>
+#include <map>
 #include <memory>
 #include <chrono>
 #include <vector>
@@ -74,7 +75,7 @@ class McmtMultiTrackerNode : public rclcpp::Node {
 		std::vector<int> origin_;
 		std::array<std::shared_ptr<mcmt::CameraTracks>, 2> cumulative_tracks_;
 		std::array<int, 2> total_tracks_;
-		// matching_dict (idk how to port this)
+		std::map<int, int> matching_dict;
 
 		// declare plotting parameters
 		int plot_history_;
@@ -91,7 +92,9 @@ class McmtMultiTrackerNode : public rclcpp::Node {
 		void process_detection_callback();
 		void declare_parameters();
 		void get_parameters();
-		// void update_cumulative_tracks(int index);
+		void update_cumulative_tracks(
+			int & index, 
+			std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks);
 		// void prune_tracks();
 		// void verify_existing_tracks();
 		// void process_new_tracks();
@@ -100,7 +103,7 @@ class McmtMultiTrackerNode : public rclcpp::Node {
 		// void compute_matching_score();
 		// void geometric_similarity();
 		// void geometric_similarity_relative();
-		void heading_error(mcmt::TrackPlot track_plot, mcmt::TrackPlot alt_track_plot, int history);
+		float heading_error(mcmt::TrackPlot & track_plot, mcmt::TrackPlot & alt_track_plot, int & history);
 		void calculate_3D();
 		void imshow_resized_dual(std::string & window_name, cv::Mat & img);
 		int encoding2mat_type(const std::string & encoding);

@@ -12,6 +12,7 @@
 #define MCMT_TRACK_UTILS_HPP_
 
 #include <string>
+#include <map>
 #include <memory>
 #include <chrono>
 #include <vector>
@@ -52,7 +53,7 @@ class CameraTracks {
 		int index_;
 
 		// declare track plot variables
-		std::vector<std::shared_ptr<mcmt::TrackPlot>> track_plots_, track_new_plots_;
+		std::map<int, std::shared_ptr<mcmt::TrackPlot>> track_plots_, track_new_plots_;
 };
 
 void update_other_tracks(TrackPlot & trackplot, std::shared_ptr<mcmt::CameraTracks> & cumulative_tracks);

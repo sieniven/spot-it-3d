@@ -15,9 +15,11 @@
 #include <chrono>
 #include <math.h>
 #include <memory>
+#include <map>
+#include <set>
 #include <algorithm>
 #include <functional>
-#include <eigen.h>
+#include <eigen3/Eigen/Dense>
 
 using namespace mcmt;
 
@@ -105,19 +107,19 @@ void McmtMultiTrackerNode::process_detection_callback()
 			// process detection info
 			process_msg_info(msg, frames_, good_tracks_, dead_tracks_);
 
-			// update_cumulative_tracks(0);
-			// update_cumulative_tracks(1);
+			update_cumulative_tracks(0);
+			update_cumulative_tracks(1);
 
-			// process_new_tracks(0, 1);
-			// process_new_tracks(1, 0);
+			process_new_tracks(0, 1);
+			process_new_tracks(1, 0);
 
-			// verify_existing_tracks(0, 1);
-			// verify_existing_tracks(1, 0);
+			verify_existing_tracks(0, 1);
+			verify_existing_tracks(1, 0);
 
-			// calculate_3D();
+			calculate_3D();
 
-			// prune_tracks(0);
-			// prune_tracks(1);
+			prune_tracks(0);
+			prune_tracks(1);
 
 			// draw tracks on opencv GUI to monitor the detected tracks
 			// lopp through each camera frame
@@ -129,8 +131,6 @@ void McmtMultiTrackerNode::process_detection_callback()
 					cv::FONT_HERSHEY_SIMPLEX, font_scale_ * 0.85, cv::Scalar(255, 0, 0), 2, cv::LINE_AA);
 				
 				// loop through every track plot
-				std::cout << "hi" << std::endl;
-				std::cout << cumulative_tracks_[i]->track_plots_.empty() << std::endl;
 				if (cumulative_tracks_[i]->track_plots_.empty() == false) {
 					for (auto & track_plot : cumulative_tracks_[i]->track_plots_) {
 						if ((frame_count_ - track_plot->lastSeen_) <= fps_) {
@@ -175,8 +175,6 @@ void McmtMultiTrackerNode::process_detection_callback()
 						}
 					}
 				}
-			std::cout << "hi" << std::endl;
-
 			}
 
 			// get trackplot process time
@@ -247,6 +245,150 @@ void McmtMultiTrackerNode::process_msg_info(mcmt_msg::msg::MultiDetectionInfo::S
 }
 
 /**
+ * this function creates new tracks and the addition to the cumulative tracks log for each frame
+ */
+void update_cumulative_tracks(
+	int & index,
+	std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks)
+{
+	int track_id, centroid_x, centroid_y;
+	for (auto & it : track : good_tracks[index]) {
+		track_id = track->id;
+		centroid_x = track->x;
+		centroid_y = track->y;
+
+		// occurance of a new track
+		if (track_id  
+
+	}
+}
+
+float McmtMultiTrackerNode::heading_error(TrackPlot & track_plot, TrackPlot & alt_track_plot, int & history)
+{
+	int deviation = 0;
+	auto dx_0 = track_plot.xs_.back() - track_plot.xs_[track_plot.xs_.size() - 2];
+	auto dy_0 = track_plot.ys_.back() - track_plot.xs_[track_plot.ys_.size() - 2];
+	auto rotation_0 = (atan2(dy_0, dx_0) + M_PI) / (2 * M_PI);
+
+	auto dx_1 = alt_track_plot.xs_.back() - alt_track_plot.xs_[alt_track_plot.xs_.size() - 2];
+	auto dy_1 = alt_track_plot.ys_.back() - alt_track_plot.xs_[alt_track_plot.ys_.size() - 2];
+	auto rotation_1 = (atan2(dy_1, dx_1) + M_PI) / (2 * M_PI);
+
+	for (int i = -2; i > 1-history; i--){ // Can help me double check if should be i > 1-history or i >= 1-history?
+		dx_0 = track_plot.xs_[i] - track_plot.xs_[track_plot.xs_[i-1]];
+		dy_0 = track_plot.ys_[i] - track_plot.ys_[track_plot.ys_[i-1]];
+		auto angle_0 = (atan2(dy_0, dx_0) + M_PI) / (2 * M_PI);
+
+		dx_1 = track_plot.xs_[i] - track_plot.xs_[track_plot.xs_[i-1]];
+		dy_1 = track_plot.ys_[i] - track_plot.ys_[track_plot.ys_[i-1]];
+		auto angle_1 = (atan2(dy_0, dx_0) + M_PI) / (2 * M_PI);
+
+		auto relative_0 = std::fmod(angle_0 - rotation_0, 1.0);
+		auto relative_1 = std::fmod(angle_1 - rotation_1, 1.0);
+
+		deviation += std::min(std::abs(std::fmod(relative_0 - relative_1,1)),
+					std::abs(std::fmod(relative_1 - relative_0, 1)));
+	}
+
+	return (deviation / 19);
+}
+
+/**
+ * Computes the 3D position of a matched drone through triangulation methods.
+ */
+void McmtMultiTrackerNode::calculate_3D()
+{
+	float fx = 1454.6;
+	float cx = 960.9;
+	float fy = 1450.3;
+	float cy = 543.7;
+	float B = 1.5;
+	int epsilon = 7;
+
+	// Check for IDs that belong to both cumulative tracks 0 and 1
+	std::set<int> matched_ids;
+	int total_num_cumulative_tracks_0 = cumulative_tracks_[0]->track_plots_.size();
+	int total_num_cumulative_tracks_1 = cumulative_tracks_[1]->track_plots_.size();
+	for (int i = 0; i < total_num_cumulative_tracks_0; i++){
+		for (int j = 0; j < total_num_cumulative_tracks_1; j++){
+			if (cumulative_tracks_[0]->track_plots_[i]->id_ == cumulative_tracks_[1]->track_plots_[j]->id_){
+				matched_ids.insert(cumulative_tracks_[0]->track_plots_[i]->id_);
+			}
+		}
+	}
+
+	int total_num_matched_ids = matched_ids.size();
+	for (std::set<int>::iterator it = matched_ids.begin(); it != matched_ids.end(); it++){
+		// Help me check if I am accessing the track_plots indexes correctly!
+		auto track_plot_0 = cumulative_tracks_[0]->track_plots_[*it];
+		auto track_plot_1 = cumulative_tracks_[1]->track_plots_[*it];
+
+		if ((track_plot_0->lastSeen_ == frame_count_) && (track_plot_1->lastSeen_ == frame_count_)){
+			int x_L = track_plot_0->xs_.back();
+			int y_L = track_plot_0->ys_.back();
+			int x_R = track_plot_1->xs_.back();
+			int y_R = track_plot_1->ys_.back();
+
+			auto alpha_L = atan2(x_L - cx, fx) / M_PI * 180;
+			auto alpha_R = atan2(x_R - cx, fx) / M_PI * 180;
+
+			auto gamma = epsilon + alpha_L - alpha_R; // unused - shld we remove?
+
+			auto Z = B / (tan((alpha_L + epsilon / 2) * (M_PI / 180)) - tan((alpha_L - epsilon / 2) * (M_PI / 180)));
+			auto X = (Z * tan((alpha_L + epsilon / 2) * (M_PI / 180)) - B / 2
+						+ Z * tan((alpha_L - epsilon / 2) * (M_PI / 180)) + B / 2) / 2;
+			auto Y = (Z * -(y_L - cy) / fy + Z * -(y_R - cy) / fy) / 2;
+
+			auto tilt = 10 * M_PI / 180;
+			Eigen::Matrix3d R;
+			R << 1, 0, 0,
+				0, cos(tilt), sin(tilt),
+				0, -sin(tilt), cos(tilt);
+			Eigen::Vector3d XYZ_original;
+			XYZ_original << X, Y, Z;
+			auto XYZ = R * XYZ_original;
+			X = XYZ(0);
+			Y = XYZ(1);
+			Z = XYZ(2);
+
+			Y += 1;
+
+			X = (std::round(X*100))/100;
+			Y = (std::round(Y*100))/100;
+			Z = (std::round(Z*100))/100;
+
+			track_plot_0->xyz_.clear();
+			track_plot_0->xyz_.push_back(X);
+			track_plot_0->xyz_.push_back(Y);
+			track_plot_0->xyz_.push_back(Z);
+			track_plot_1->xyz_.clear();
+			track_plot_1->xyz_.push_back(X);
+			track_plot_1->xyz_.push_back(Y);
+			track_plot_1->xyz_.push_back(Z);
+
+		}
+		else {
+			track_plot_0->xyz_.clear();
+			track_plot_1->xyz_.clear();
+		}
+	}
+}
+
+void McmtMultiTrackerNode::imshow_resized_dual(std::string & window_name, cv::Mat & img)
+{
+	cv::Size img_size = img.size();
+
+	float aspect_ratio = img_size.width / img_size.height;
+
+	cv::Size window_size;
+	window_size.width = 1920;
+	window_size.height = 1920 / aspect_ratio;
+	
+	cv::resize(img, img, window_size, 0, 0, cv::INTER_CUBIC);
+	cv::imshow(window_name, img);
+}
+
+/**
  * This function declares our mcmt software parameters as ROS2 parameters.
  */
 void McmtMultiTrackerNode::declare_parameters()
@@ -307,118 +449,4 @@ int McmtMultiTrackerNode::encoding2mat_type(const std::string & encoding)
     } else {
         throw std::runtime_error("Unsupported encoding type");
     }
-}
-
-void McmtMultiTrackerNode::imshow_resized_dual(std::string & window_name, cv::Mat & img)
-{
-	cv::Size img_size = img.size();
-
-	float aspect_ratio = img_size.width / img_size.height;
-
-	cv::Size window_size;
-	window_size.width = 1920;
-	window_size.height = 1920 / aspect_ratio;
-	
-	cv::resize(img, img, window_size, 0, 0, cv::INTER_CUBIC);
-	cv::imshow(window_name, img);
-}
-
-void McmtMultiTrackerNode::heading_error(TrackPlot track_plot, TrackPlot alt_track_plot, int history)
-{
-	int deviation = 0;
-	auto dx_0 = track_plot.xs.back() - track_plot.xs[track_plot.xs.size() - 2];
-	auto dy_0 = track_ploy.ys.back() - track_plot.xs[track_plot.ys.size() - 2];
-	auto angle_0 = (atan2(dy_0, dx_0) + M_PI) / (2 * M_PI);
-
-	auto dx_1 = alt_track_plot.xs.back() - alt_track_plot.xs[alt_track_plot.xs.size() - 2];
-	auto dy_1 = alt_track_ploy.ys.back() - alt_track_plot.xs[alt_track_plot.ys.size() - 2];
-	auto angle_1 = (atan2(dy_1, dx_1) + M_PI) / (2 * M_PI);
-
-	for (int i = -2; i > 1-history; i--){ // Can help me double check if should be i > 1-history or i >= 1-history?
-		dx_0 = track_plot.xs[i] - track_plot.xs[track_plot.xs[i-1];
-		dy_0 = track_plot.ys[i] - track_plot.ys[track_plot.ys[i-1];
-		angle_0 = (atan2(dy_0, dx_0) + M_PI) / (2 * M_PI);
-
-		dx_1 = track_plot.xs[i] - track_plot.xs[track_plot.xs[i-1];
-		dy_1 = track_plot.ys[i] - track_plot.ys[track_plot.ys[i-1];
-		angle_1 = (atan2(dy_0, dx_0) + M_PI) / (2 * M_PI);
-
-		auto relative_0 = (angle_0 - rotation_0) % 1;
-		auto relative_1 = (angle_1 - rotation_1) % 1;
-
-		deviation += std::min(std::abs((relative_0 - relative_1) % 1), std::abs((relative_1 - relative_0) % 1);
-	}
-
-	return deviation / 19;
-}
-
-/**
- * Computes the 3D position of a matched drone through triangulation methods.
- */
-void McmtMultiTrackerNode::calculate3D()
-{
-	float fx = 1454.6;
-	float cx = 960.9;
-	float fy = 1450.3;
-	float cy = 543.7;
-	float B = 1.5;
-	int epsilon = 7;
-
-	std::array<std::shared_ptr<mcmt::CameraTracks>, 2> matched_ids;
-	// Placeholder. Need to find intersect of cumulative_tracks
-
-	int total_num_matched_ids = matched_ids.size();
-	for (int matched_id = 0; matched_id < matched_ids.size(); matched_id++){
-		auto track_plot_0 = cumulative_tracks_[0]->track_plots_[matched_id];
-		auto track_plot_1 = cumulative_tracks_[1]->track_plots_[matched_id];
-
-		if ((track_plot_0.lastSeen_ == frame_count) && (track_plot_1.lastSeen_ == frame_count)){
-			int x_L = track_plot_0.xs.back();
-			int y_L = track_plot_0.ys.back();
-			int x_R = track_plot_1.xs.back();
-			int y_R = track_plot_1.ys.back();
-
-			auto alpha_L = atan2(x_L - cx, fx) / M_PI * 180;
-			auto alpha_R = atan2(x_R - cx, fx) / M_PI * 180;
-
-			auto gamma = epsilon + alpha_L - alpha_R; // unused - shld we remove?
-
-			auto Z = B / (tan((alpha_L + epsilon / 2) * (M_PI / 180)) - tan((alpha_L - epsilon / 2) * (M_PI / 180)));
-			auto X = (Z * tan((alpha_L + epsilon / 2) * (M_PI / 180)) - B / 2
-						Z * tan((alpha_L - epsilon / 2) * (M_PI / 180)) + B / 2) / 2;
-			auto Y = (Z * -(y_L - cy) / fy + Z * -(y_R - cy) / fy) / 2;
-
-			auto tilt = 10 * M_PI / 180;
-			Eigen::Matrix3d R;
-			R << 1, 0, 0,
-				0, cos(tilt), sin(tilt),
-				0, -sin(tilt); cos(tilt);
-			Eigen::Vector3d XYZ_original;
-			XYZ_original << X, Y, Z;
-			auto XYZ = R * XYZ_original;
-			X = XYZ(0);
-			Y = XYZ(1);
-			Z = XYZ(2);
-
-			Y += 1;
-
-			X = (std::round(X*100))/100;
-			Y = (std::round(Y*100))/100;
-			Z = (std::round(Z*100))/100;
-
-			track_plot_0.xyz_.clear();
-			track_plot_0.xyz_.push_back(X);
-			track_plot_0.xyz_.push_back(Y);
-			track_plot_0.xyz_.push_back(Z);
-			track_plot_1.xyz_.clear();
-			track_plot_1.xyz_.push_back(X);
-			track_plot_1.xyz_.push_back(Y);
-			track_plot_1.xyz_.push_back(Z);
-
-		}
-		else{
-			track_plot_0.xyz_.clear();
-			track_plot_1.xyz_.clear();
-		}
-	}
 }

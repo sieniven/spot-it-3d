@@ -129,7 +129,9 @@ void mcmt::update_other_tracks(TrackPlot & trackplot, std::shared_ptr<CameraTrac
 	trackplot.other_tracks_.clear();
 
 	// iterate through the camera's tracks
-	for (auto & other_track : cumulative_tracks->track_plots_) {
+	std::map<int, std::shared_ptr<mcmt::TrackPlot>>::iterator other_track;
+	for (other_track = cumulative_tracks->track_plots_.begin(); 
+		other_track != cumulative_tracks->track_plots_.end(); other_track++) {
 		if (other_track->xs_.size() != 0 && other_track->ys_.size() != 0) {
 			int dx = other_track->xs_.end()[-1] - trackplot.xs_.end()[-1];
 			int dy = other_track->ys_.end()[-1] - trackplot.ys_.end()[-1];
@@ -143,7 +145,8 @@ void mcmt::update_other_tracks(TrackPlot & trackplot, std::shared_ptr<CameraTrac
 		}
 	}
 
-	for (auto & other_track : cumulative_tracks->track_new_plots_) {
+	for (other_track = cumulative_tracks->track_new_plots_.begin(); 
+		other_track != cumulative_tracks->track_new_plots_.end(); other_track++) {
 		if (other_track->xs_.size() != 0 && other_track->ys_.size() != 0) {
 			int dx = other_track->xs_.end()[-1] - trackplot.xs_.end()[-1];
 			int dy = other_track->ys_.end()[-1] - trackplot.ys_.end()[-1];
