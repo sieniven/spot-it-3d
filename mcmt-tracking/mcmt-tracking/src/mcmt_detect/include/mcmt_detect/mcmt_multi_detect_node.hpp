@@ -35,7 +35,7 @@ namespace mcmt
 class McmtMultiDetectNode : public rclcpp::Node {
   public:
     McmtMultiDetectNode();
-  	virtual ~McmcMultiDetectNode() {}
+  	virtual ~McmtMultiDetectNode() {}
 		
 		// declare node parameters
     rclcpp::Node::SharedPtr node_handle_;

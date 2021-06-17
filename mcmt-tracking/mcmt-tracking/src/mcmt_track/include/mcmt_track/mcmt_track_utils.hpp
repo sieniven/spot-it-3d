@@ -20,18 +20,6 @@
 
 namespace mcmt
 {
-class CameraTracks {
-	public:
-		CameraTracks(int index);
-		virtual ~CameraTracks() {}
-
-		// declare camera parameters
-		int index_;
-
-		// declare track plot variables
-		std::vector<std::shared_ptr<mcmt::TrackPlot>> track_plots_, track_new_plots_;
-};
-
 class TrackPlot {
 	public:
 		TrackPlot(int track_id);
@@ -52,13 +40,26 @@ class TrackPlot {
 		// declare methods
 		void update(std::vector<int> & location, int & frame_no);
 		void calculate_track_feature_variable(int & frame_no, int & fps);
-		void update_other_tracks(std::shared_ptr<CameraTracks> & cumulative_tracks);
 		bool check_stationary();
 };
 
+class CameraTracks {
+	public:
+		CameraTracks(int index);
+		virtual ~CameraTracks() {}
+
+		// declare camera parameters
+		int index_;
+
+		// declare track plot variables
+		std::vector<std::shared_ptr<mcmt::TrackPlot>> track_plots_, track_new_plots_;
+};
+
+void update_other_tracks(TrackPlot & trackplot, std::shared_ptr<mcmt::CameraTracks> & cumulative_tracks);
+
 void combine_track_plots(
 	int & index,
-	std::shared_ptr<CameraTracks> & camera_tracks,
+	std::shared_ptr<mcmt::CameraTracks> & camera_tracks,
 	std::shared_ptr<mcmt::TrackPlot> & track_plot,
 	int & frame_count);
 

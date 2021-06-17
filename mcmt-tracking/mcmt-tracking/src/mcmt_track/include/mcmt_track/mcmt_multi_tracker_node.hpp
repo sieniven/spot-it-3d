@@ -19,7 +19,6 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_msgs/msg/header.hpp>
 #include <sensor_msgs/msg/image.hpp>
-#include <sensor_msgs/image_encodings.h>
 #include <cv_bridge/cv_bridge.h>
 
 // local header files
@@ -42,7 +41,7 @@ class McmtMultiTrackerNode : public rclcpp::Node {
 
 		// declare node parameters
 		rclcpp::Node::SharedPtr node_handle_;
-		rclcpp::Subscription::<mcmt_msg::msg::MultiDetectionInfo>::SharedPtr detection_sub_;
+		rclcpp::Subscription<mcmt_msg::msg::MultiDetectionInfo>::SharedPtr detection_sub_;
 		std::string topic_name_;
 
 		// declare camera parameters
@@ -62,9 +61,6 @@ class McmtMultiTrackerNode : public rclcpp::Node {
 		rclcpp::Parameter IS_REALTIME_param, VIDEO_INPUT_1_param, VIDEO_INPUT_2_param, FRAME_WIDTH_param, 
 											FRAME_HEIGHT_param, OUTPUT_VIDEO_PATH_param, OUTPUT_CSV_PATH_1_param,
 											OUTPUT_CSV_PATH_2_param;
-
-		// declare time variables
-		std::chrono::time_point start_, end_;
 
 		// define good tracks
 		typedef struct GoodTrack {
@@ -95,19 +91,19 @@ class McmtMultiTrackerNode : public rclcpp::Node {
 		void process_detection_callback();
 		void declare_parameters();
 		void get_parameters();
-		void update_cumulative_tracks();
-		void prune_tracks();
-		void verify_existing_tracks();
-		void process_new_tracks();
-		void get_total_number_of_tracks();
-		void normalise_track_plot();
-		void compute_matching_score();
-		void geometric_similarity();
-		void geometric_similarity_relative();
-		void heading_error();
+		// void update_cumulative_tracks(int index);
+		// void prune_tracks();
+		// void verify_existing_tracks();
+		// void process_new_tracks();
+		// void get_total_number_of_tracks();
+		// void normalise_track_plot();
+		// void compute_matching_score();
+		// void geometric_similarity();
+		// void geometric_similarity_relative();
+		void heading_error(mcmt::TrackPlot track_plot, mcmt::TrackPlot alt_track_plot, int history);
 		void calculate_3D();
-		void imshow_resized_dual();
-		std::string mat_type2encoding(int mat_type)
+		void imshow_resized_dual(std::string & window_name, cv::Mat & img);
+		int encoding2mat_type(const std::string & encoding);
 };
 }
 

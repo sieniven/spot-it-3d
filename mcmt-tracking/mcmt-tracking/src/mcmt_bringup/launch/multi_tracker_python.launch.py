@@ -14,8 +14,8 @@ def generate_launch_description():
 	return LaunchDescription([
 		Node(
 			package='mcmt_track_python',
-			node_executable='mcmt_single_tracker',
-			name='SingleTrackerNode',
+			node_executable='mcmt_multi_tracker',
+			name='MultiTrackerNode',
 			output='screen',
 			emulate_tty=True,
 			parameters=[config]),

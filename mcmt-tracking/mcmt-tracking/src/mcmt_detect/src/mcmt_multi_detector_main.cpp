@@ -1,8 +1,8 @@
 /**
- * Pipeline to launch Detect Nodes
+ * Pipeline to launch Detect Node
  * Author: Niven Sie, sieniven@gmail.com 
  * This code contains the main pipeline to launch our Detector Node for 
- * camera 1 detection.
+ * multi camera detection.
  */
 
 #include <opencv2/opencv.hpp>

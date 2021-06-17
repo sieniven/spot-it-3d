@@ -60,12 +60,12 @@ void TrackPlot::calculate_track_feature_variable(int & frame_no, int & fps)
 {
 	// checks if there is enough data to calculate the turning angle (at least
 	// 3 points) and that the data is from the current frame
-	if (frameNos_.size() >= 3 && frameNos.back() == frame_no) {
+	if (frameNos_.size() >= 3 && frameNos_.back() == frame_no) {
 		// check if the last 3 frames are consecutive
 		if ((frameNos_.end()[-2] == (frameNos_.end()[-1] - 1)) &&
 				(frameNos_.end()[-3] == (frameNos_.end()[-2] - 1))) {
 			// retrieve the x and y values of the last 3 points
-			int t = 2
+			int t = 2;
 			std::vector<int> x(xs_.end() - 3, xs_.end());
 			std::vector<int> y(ys_.end() - 3, ys_.end());
 
@@ -93,44 +93,6 @@ void TrackPlot::calculate_track_feature_variable(int & frame_no, int & fps)
 }
 
 /**
- * this function updates the current frame's other_tracks list
- */
-void TrackPlot::update_other_tracks(std::shared_ptr<CameraTracks> & cumulative_tracks)
-{
-	// clear other_tracks vector
-	other_tracks_.clear();
-
-	// iterate through the camera's tracks
-	for (auto & other_track : cumulative_tracks->track_plots_) {
-		if (other_track->xs_.size() != 0 && other_track->ys_.size() != 0) {
-			int dx = other_track->xs_.end()[-1] - xs_.end()[-1];
-			int dy = other_track->ys_.end()[-1] - ys_.end()[-1];
-
-			if (dx != 0 && dy != 0) {
-				auto new_other_track = std::shared_ptr<OtherTrack>(new OtherTrack());
-				new_other_track->angle = atan2(dy, dx);
-				new_other_track->dist = hypot(dx, dy);
-				other_tracks_.push_back(new_other_track);
-			}
-		}
-	}
-
-	for (auto & other_track : cumulative_tracks->track_new_plots_) {
-		if (other_track->xs_.size() != 0 && other_track->ys_.size() != 0) {
-			int dx = other_track->xs_.end()[-1] - xs_.end()[-1];
-			int dy = other_track->ys_.end()[-1] - ys_.end()[-1];
-
-			if (dx != 0 && dy != 0) {
-				auto new_other_track = std::shared_ptr<OtherTrack>(new OtherTrack());
-				new_other_track->angle = atan2(dy, dx);
-				new_other_track->dist = hypot(dx, dy);
-				other_tracks_.push_back(new_other_track);
-			}
-		}
-	}
-}
-
-/**
  * This function checks if the current TrackPlot has been stationary for too long,
  * by calculating the distance the track moved for the last 9 frames. it returns
  * a bool True if its average distance moved per frame is less than 3.0, and returns
@@ -142,8 +104,8 @@ bool TrackPlot::check_stationary()
 	float distance = 0.0;
 
 	for (int i = -1; i >= -9; i--) {
-		int dx = xs.end()[i] - xs.end()[i-1];
-		int dy = ys.end()[i] - ys.end()[i-1];
+		int dx = xs_.end()[i] - xs_.end()[i-1];
+		int dy = ys_.end()[i] - ys_.end()[i-1];
 
 		// get euclidean distance, and add to total distance
 		distance += hypot(dx, dy);
@@ -158,7 +120,45 @@ bool TrackPlot::check_stationary()
 	}
 }
 
-void combine_track_plots(
+/**
+ * this function updates the current frame's other_tracks list
+ */
+void mcmt::update_other_tracks(TrackPlot & trackplot, std::shared_ptr<CameraTracks> & cumulative_tracks)
+{
+	// clear other_tracks vector
+	trackplot.other_tracks_.clear();
+
+	// iterate through the camera's tracks
+	for (auto & other_track : cumulative_tracks->track_plots_) {
+		if (other_track->xs_.size() != 0 && other_track->ys_.size() != 0) {
+			int dx = other_track->xs_.end()[-1] - trackplot.xs_.end()[-1];
+			int dy = other_track->ys_.end()[-1] - trackplot.ys_.end()[-1];
+
+			if (dx != 0 && dy != 0) {
+				auto new_other_track = std::shared_ptr<TrackPlot::OtherTrack>(new TrackPlot::OtherTrack());
+				new_other_track->angle = atan2(dy, dx);
+				new_other_track->dist = hypot(dx, dy);
+				trackplot.other_tracks_.push_back(new_other_track);
+			}
+		}
+	}
+
+	for (auto & other_track : cumulative_tracks->track_new_plots_) {
+		if (other_track->xs_.size() != 0 && other_track->ys_.size() != 0) {
+			int dx = other_track->xs_.end()[-1] - trackplot.xs_.end()[-1];
+			int dy = other_track->ys_.end()[-1] - trackplot.ys_.end()[-1];
+
+			if (dx != 0 && dy != 0) {
+				auto new_other_track = std::shared_ptr<TrackPlot::OtherTrack>(new TrackPlot::OtherTrack());
+				new_other_track->angle = atan2(dy, dx);
+				new_other_track->dist = hypot(dx, dy);
+				trackplot.other_tracks_.push_back(new_other_track);
+			}
+		}
+	}
+}
+
+void mcmt::combine_track_plots(
 	int & index,
 	std::shared_ptr<CameraTracks> & camera_tracks,
 	std::shared_ptr<mcmt::TrackPlot> & track_plot,
@@ -206,7 +206,7 @@ void combine_track_plots(
 /**
  * this function converts scalar value into rbg values
  */
-std::vector<int> scalar_to_rgb(int & scalar_value, int & max_value)
+std::vector<int> mcmt::scalar_to_rgb(int & scalar_value, int & max_value)
 {
 	// create empty vector
 	std::vector<int> output;
