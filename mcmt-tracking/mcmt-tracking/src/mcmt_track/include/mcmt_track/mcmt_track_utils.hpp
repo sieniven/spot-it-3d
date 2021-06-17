@@ -56,12 +56,13 @@ class CameraTracks {
 		std::map<int, std::shared_ptr<mcmt::TrackPlot>> track_plots_, track_new_plots_;
 };
 
-void update_other_tracks(TrackPlot & trackplot, std::shared_ptr<mcmt::CameraTracks> & cumulative_tracks);
+void update_other_tracks(std::shared_ptr<mcmt::TrackPlot> trackplot, 
+	std::shared_ptr<mcmt::CameraTracks> & cumulative_tracks);
 
 void combine_track_plots(
 	int & index,
-	std::shared_ptr<mcmt::CameraTracks> & camera_tracks,
-	std::shared_ptr<mcmt::TrackPlot> & track_plot,
+	std::shared_ptr<mcmt::CameraTracks> camera_tracks,
+	std::shared_ptr<mcmt::TrackPlot> track_plot,
 	int & frame_count);
 
 std::vector<int> scalar_to_rgb(int & scalar_value, int & max_value);

@@ -93,17 +93,19 @@ class McmtMultiTrackerNode : public rclcpp::Node {
 		void get_parameters();
 		
 		void process_detection_callback();
-		void update_cumulative_tracks(int & index, std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks);
-		void prune_tracks(int & index, std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks);
+		void update_cumulative_tracks(int index, std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks);
+		void prune_tracks(int index, std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks);
 		void verify_existing_tracks();
-		// void process_new_tracks();
+		void process_new_tracks(int index, int alt,
+			std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks,
+			std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & filter_good_tracks,
+			std::array<std::vector<int>, 2> & dead_tracks);
 		void get_total_number_of_tracks();
-		void normalise_track_plot();
+		std::vector<float> normalise_track_plot(std::shared_ptr<mcmt::TrackPlot> track_plot);
 		float correlationCoefficient(std::vector<float> X, std::vector<float> Y, int n);
-		float McmtMultiTrackerNode::compute_matching_score(std::shared_ptr<mcmt::TrackPlot> track_plot,
-			std::shared_ptr<mcmt::TrackPlot> alt_track_plot, int & index, int &alt);
-		float McmtMultiTrackerNode::geometric_similarity(
-			std::vector<mcmt::TrackPlot::OtherTrack> & other_tracks_0,
+		float compute_matching_score(std::shared_ptr<mcmt::TrackPlot> track_plot,
+			std::shared_ptr<mcmt::TrackPlot> alt_track_plot, int index, int alt);
+		float geometric_similarity(std::vector<mcmt::TrackPlot::OtherTrack> & other_tracks_0,
 			std::vector<mcmt::TrackPlot::OtherTrack> & other_tracks_1);
 		float heading_error(std::shared_ptr<mcmt::TrackPlot> track_plot, 
 			std::shared_ptr<mcmt::TrackPlot> alt_track_plot, int & history);

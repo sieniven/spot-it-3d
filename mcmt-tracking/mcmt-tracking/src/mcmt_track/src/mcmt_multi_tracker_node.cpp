@@ -107,22 +107,26 @@ void McmtMultiTrackerNode::process_detection_callback()
 			// process detection info
 			process_msg_info(msg, frames_, good_tracks_, dead_tracks_);
 
-			update_cumulative_tracks(0);
-			update_cumulative_tracks(1);
+			// create filter copy of good_tracks list
+			filter_good_tracks_[0] = good_tracks_[0];
+			filter_good_tracks_[1] = good_tracks_[1];
 
-			process_new_tracks(0, 1);
-			process_new_tracks(1, 0);
+			update_cumulative_tracks(0, good_tracks_);
+			update_cumulative_tracks(1, good_tracks_);
 
-			verify_existing_tracks(0, 1);
-			verify_existing_tracks(1, 0);
+			process_new_tracks(0, 1, good_tracks_, filter_good_tracks_, dead_tracks_);
+			process_new_tracks(1, 0, good_tracks_, filter_good_tracks_, dead_tracks_);
+
+			verify_existing_tracks();
 
 			calculate_3D();
 
-			prune_tracks(0);
-			prune_tracks(1);
+			prune_tracks(0, good_tracks_);
+			prune_tracks(1, good_tracks_);
 
 			// draw tracks on opencv GUI to monitor the detected tracks
 			// lopp through each camera frame
+			std::map<int, std::shared_ptr<mcmt::TrackPlot>>::iterator track;
 			for (int i = 0; i < 2; i++) {
 				cv::putText(*frames_[i].get(), "CAMERA " + std::to_string(i), cv::Point(20, 30),
 					cv::FONT_HERSHEY_SIMPLEX, font_scale_ * 0.85, cv::Scalar(255, 0, 0), 2, cv::LINE_AA);
@@ -132,13 +136,14 @@ void McmtMultiTrackerNode::process_detection_callback()
 				
 				// loop through every track plot
 				if (cumulative_tracks_[i]->track_plots_.empty() == false) {
-					for (auto & track_plot : cumulative_tracks_[i]->track_plots_) {
-						if ((frame_count_ - track_plot->lastSeen_) <= fps_) {
+					for (track = cumulative_tracks_[i]->track_plots_.begin(); 
+						track != cumulative_tracks_[i]->track_plots_.end(); track++) {
+						if ((frame_count_ - track->second->lastSeen_) <= fps_) {
 							// get last frames up till plot history (200)
 							shown_indexes_.clear();
 
-							for(int j = track_plot->frameNos_.size() - 1; j >= 0; j--) {
-								if (track_plot->frameNos_[j] > (frame_count_ - plot_history_)) {
+							for(int j = track->second->frameNos_.size() - 1; j >= 0; j--) {
+								if (track->second->frameNos_[j] > (frame_count_ - plot_history_)) {
 									shown_indexes_.push_back(j);
 								} else {
 									break;
@@ -147,28 +152,28 @@ void McmtMultiTrackerNode::process_detection_callback()
 
 							// draw the track's path history on opencv GUI
 							for (auto & idx : shown_indexes_) {
-								int color_idx = track_plot->frameNos_[idx] - frame_count_ + plot_history_ - 1;
-								cv::circle(*frames_[i].get(), cv::Point(track_plot->xs_[idx], track_plot->ys_[idx]), 3,
+								int color_idx = track->second->frameNos_[idx] - frame_count_ + plot_history_ - 1;
+								cv::circle(*frames_[i].get(), cv::Point(track->second->xs_[idx], track->second->ys_[idx]), 3,
 									cv::Scalar(colors_[color_idx][2], colors_[color_idx][1], colors_[color_idx][0]), -1);
 							}
 							
 							// put ID and XYZ coordinates on opencv GUI
 							if (shown_indexes_.empty() == false) {
-								cv::putText(*frames_[i].get(), "ID: " + std::to_string(track_plot->id_), 
-									cv::Point(track_plot->xs_.back(), track_plot->ys_.back() + 15), cv::FONT_HERSHEY_SIMPLEX,
+								cv::putText(*frames_[i].get(), "ID: " + std::to_string(track->second->id_), 
+									cv::Point(track->second->xs_.back(), track->second->ys_.back() + 15), cv::FONT_HERSHEY_SIMPLEX,
 									font_scale_, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
 								
-								if (track_plot->xyz_.empty() == false) {
-									cv::putText(*frames_[i].get(), "X: " + std::to_string(track_plot->xyz_[0]),
-										cv::Point(track_plot->xs_.back(), track_plot->ys_.back() + 30), cv::FONT_HERSHEY_SIMPLEX,
+								if (track->second->xyz_.empty() == false) {
+									cv::putText(*frames_[i].get(), "X: " + std::to_string(track->second->xyz_[0]),
+										cv::Point(track->second->xs_.back(), track->second->ys_.back() + 30), cv::FONT_HERSHEY_SIMPLEX,
 										font_scale_, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
 
-									cv::putText(*frames_[i].get(), "Y: " + std::to_string(track_plot->xyz_[1]),
-										cv::Point(track_plot->xs_.back(), track_plot->ys_.back() + 45), cv::FONT_HERSHEY_SIMPLEX,
+									cv::putText(*frames_[i].get(), "Y: " + std::to_string(track->second->xyz_[1]),
+										cv::Point(track->second->xs_.back(), track->second->ys_.back() + 45), cv::FONT_HERSHEY_SIMPLEX,
 										font_scale_, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
 
-									cv::putText(*frames_[i].get(), "Z: " + std::to_string(track_plot->xyz_[2]),
-										cv::Point(track_plot->xs_.back(), track_plot->ys_.back() + 60), cv::FONT_HERSHEY_SIMPLEX,
+									cv::putText(*frames_[i].get(), "Z: " + std::to_string(track->second->xyz_[2]),
+										cv::Point(track->second->xs_.back(), track->second->ys_.back() + 60), cv::FONT_HERSHEY_SIMPLEX,
 										font_scale_, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
 								}
 							}
@@ -248,7 +253,7 @@ void McmtMultiTrackerNode::process_msg_info(mcmt_msg::msg::MultiDetectionInfo::S
  * this function creates new tracks and the addition to the cumulative tracks log for each frame
  */
 void McmtMultiTrackerNode::update_cumulative_tracks(
-	int & index,
+	int index,
 	std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks)
 {
 	int track_id, centroid_x, centroid_y;
@@ -270,7 +275,7 @@ void McmtMultiTrackerNode::update_cumulative_tracks(
  * this function removes dead tracks if they have not appeared for more than 300 frames
  */
 void McmtMultiTrackerNode::prune_tracks(
-	int & index,
+	int index,
 	std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks)
 {
 	std::vector<int> prune;
@@ -320,7 +325,8 @@ void McmtMultiTrackerNode::verify_existing_tracks()
 		alt_track_plot_normalize_xj = normalise_track_plot(track_plot_1);
 
 		// track feature variable correlation strength
-		r_value = 
+		auto r_value = correlationCoefficient(track_plot_normalize_xj,
+			alt_track_plot_normalize_xj, track_plot_normalize_xj.size());
 
 		// heading deviation error score
 		float heading_err = heading_error(track_plot_0, track_plot_1, 30);
@@ -368,7 +374,7 @@ void McmtMultiTrackerNode::verify_existing_tracks()
 }
 
 void McmtMultiTrackerNode::process_new_tracks(
-	index, alt,
+	int index, int alt,
 	std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks,
 	std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & filter_good_tracks,
 	std::array<std::vector<int>, 2> & dead_tracks)
@@ -376,12 +382,10 @@ void McmtMultiTrackerNode::process_new_tracks(
 	get_total_number_of_tracks();
 	std::map<int, std::map<int, float>> corrValues;
 	std::set<int> removeSet;
-
+	int track_id, centroid_x, centroid_y;
 	int row = 0;
 
-	int track_id, centroid_x, centroid_y;
-	for (auto &it : track : good_tracks[index])
-	{
+	for (auto & track : good_tracks[index]) {
 		// Extract details from the track
 		track_id = track->id;
 		centroid_x = track->x;
@@ -630,15 +634,15 @@ std::vector<float> McmtMultiTrackerNode::normalise_track_plot(std::shared_ptr<mc
 }
 
 float McmtMultiTrackerNode::compute_matching_score(std::shared_ptr<mcmt::TrackPlot> track_plot,
-		std::shared_ptr<mcmt::TrackPlot> alt_track_plot, int & index, int &alt)
+		std::shared_ptr<mcmt::TrackPlot> alt_track_plot, int index, int alt)
 {
 	// Normalization of cross correlation values
 	auto track_plot_normalize_xj = normalise_track_plot(track_plot);
 	auto alt_track_plot_normalize_xj = normalise_track_plot(alt_track_plot);
 
 	// Updating of tracks in the local neighbourhood
-	mcmt::update_other_tracks(*track_plot, cumulative_tracks_[index]);
-	mcmt::update_other_tracks(*alt_track_plot, cumulative_tracks_[alt]);
+	mcmt::update_other_tracks(track_plot, cumulative_tracks_[index]);
+	mcmt::update_other_tracks(alt_track_plot, cumulative_tracks_[alt]);
 
 	// Track feature variable correlation strength
 	// How to set mode = "full" like in numpy correlate?
