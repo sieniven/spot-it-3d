@@ -67,24 +67,34 @@ class McmtMultiTrackerNode : public rclcpp::Node {
 		std::chrono::time_point start_, end_;
 
 		// define good tracks
-		typedef struct GoodTracks {
+		typedef struct GoodTrack {
 			int id;
 			int x;
 			int y;
-		} GoodTracks;
+		} GoodTrack;
 
 		// declare tracking variables
-		std::vector<std::shared_ptr<cv::Mat>> frames_;
-		std::vector<std::vector<std::shared_ptr<GoodTracks>>> good_tracks_, filter_good_tracks_;
-		std::vector<std::vector<int>> dead_tracks_;
-		int frame_count_;
+		int frame_count_, next_id_;
+		std::vector<int> origin_;
+		std::array<std::shared_ptr<mcmt::CameraTracks>, 2> cumulative_tracks_;
+		std::array<int, 2> total_tracks_;
+		// matching_dict (idk how to port this)
 
+		// declare plotting parameters
+		int plot_history_;
+		std::vector<std::vector<int>> colors_;
+		float font_scale_;
+		std::vector<int> shown_indexes_;
 		
 		// tracker node methods
+		void process_msg_info(mcmt_msg::msg::MultiDetectionInfo::SharedPtr msg,
+				std::array<std::shared_ptr<cv::Mat>, 2> & frames,
+				std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks,
+				std::array<std::vector<int>, 2> & dead_tracks);
+
 		void process_detection_callback();
 		void declare_parameters();
 		void get_parameters();
-		void process_msg_info(mcmt_msg::msg::MultiDetectionInfo::SharedPtr msg);
 		void update_cumulative_tracks();
 		void prune_tracks();
 		void verify_existing_tracks();

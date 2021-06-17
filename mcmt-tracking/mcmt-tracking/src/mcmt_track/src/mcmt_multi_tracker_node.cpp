@@ -61,6 +61,18 @@ McmtMultiTrackerNode::McmtMultiTrackerNode()
 	start_ = std::chrono::system_clock::now();
 	end_ = std::chrono::system_clock::now();
 
+	// initialize origin (0, 0) and track id
+	origin_.push_back(0);
+	origin_.push_back(0);
+	next_id_ = 0;
+
+	// initialze plotting parameters
+	plot_history_ = 200;
+	font_scale_ = 0.5;
+	for (int i = 0; i < plot_history_; i++) {
+		colors_.push_back(scalar_to_rgb(i, plot_history_));
+	}
+
 	process_detection_callback();
 }
 
@@ -81,17 +93,101 @@ void McmtMultiTrackerNode::process_detection_callback()
 		qos,
 		[this](const mcmt_msg::msg::MultiDetectionInfo::SharedPtr msg) -> void
 		{
-			// get start time and process detection info
+			// get start time
 			start_ = std::chrono::system_clock::now();
-			process_msg_info(msg);
+
+			// declare tracking arrays
+			std::array<std::shared_ptr<cv::Mat>, 2> frames_;
+			std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> good_tracks_, filter_good_tracks_;
+			std::array<std::vector<int>, 2> dead_tracks_;
+
+			// process detection info
+			process_msg_info(msg, frames_, good_tracks_, dead_tracks_);
 
 			// get time taken to get message
 			std::chrono::duration<double> elapsed_seconds = start_ - end_;
 			std::cout << "Time taken to get message: " << elapsed_seconds.count() << "s\n";
 
-			// create filer copy of good_tracks list
+			update_cumulative_tracks(0);
+			update_cumulative_tracks(1);
 
+			process_new_tracks(0, 1);
+			process_new_tracks(1, 0);
 
+			verify_existing_tracks(0, 1);
+			verify_existing_tracks(1, 0);
+
+			calculate_3D();
+
+			prune_tracks(0);
+			prune_tracks(1);
+
+			// draw tracks on opencv GUI to monitor the detected tracks
+			// lopp through each camera frame
+			for (int i = 0, i < 2; i++) {
+				cv::putText(*frames_[i].get(), "CAMERA " + std::to_string(i), cv::Point(20, 30),
+					cv::FONT_HERSHEY_SIMPLEX, front_scale_ * 0.85, cv::Scalar(255, 0, 0), 2, cv::LINE_AA);
+				
+				cv::putText(*frames_[i].get(), "Frame Count " + std::to_string(frame_count_), cv::Point(20, 50),
+					cv::FONT_HERSHEY_SIMPLEX, front_scale_ * 0.85, cv::Scalar(255, 0, 0), 2, cv::LINE_AA);
+				
+				// loop through every track plot
+				for (auto & track_plot : cumulative_tracks_[i]->track_plots_) {
+					if ((frame_count_ - track_plot->lastSeen_) <= fps_) {
+						// get last frames up till plot history (200)
+						shown_indexes_.clear();
+
+						for(int j = track_plot->frameNos_.size() - 1; j >= 0; j--) {
+							if (track_plot->frameNos_[j] > (frame_count_ - plot_history_) {
+								shown_indexes_.push_back(j);
+							} else {
+								break;
+							}
+						}
+
+						// draw the track's path history on opencv GUI
+						for (auto & idx : shown_indexes_) {
+							int color_idx = track_plot->frameNos_[idx] - frame_count_ + plot_history_ - 1;
+							cv::circle(*frames_[i].get(), cv::Point(track_plot->xs_[idx], track_plot->ys_[idx]), 3,
+								cv::Scalar(colors_[color_idx][2], colors_[color_idx][1], colors_[color_idx][0]), -1);
+						}
+						
+						// put ID and XYZ coordinates on opencv GUI
+						if (shown_indexes_.size() != 0) {
+							cv::putText(*frames_[i].get(), "ID: " + std::to_string(track_plot->id_), 
+								cv::Point(track_plot->xs_[-1], track_plot->ys_[-1] + 15), cv::FONT_HERSHEY_SIMPLEX,
+								front_scale_, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
+							
+							if (track_plot->xyz_.size() != 0) {
+								cv::putText(*frames_[i].get(), "X: " + std::to_string(track_plot->xyz_[0]),
+									cv::Point(track_plot->xs_[-1], track_plot->ys_[-1] + 30), cv::FONT_HERSHEY_SIMPLEX,
+									front_scale_, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
+
+								cv::putText(*frames_[i].get(), "Y: " + std::to_string(track_plot->xyz_[1]),
+									cv::Point(track_plot->xs_[-1], track_plot->ys_[-1] + 45), cv::FONT_HERSHEY_SIMPLEX,
+									front_scale_, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
+
+								cv::putText(*frames_[i].get(), "Z: " + std::to_string(track_plot->xyz_[2]),
+									cv::Point(track_plot->xs_[-1], track_plot->ys_[-1] + 60), cv::FONT_HERSHEY_SIMPLEX,
+									front_scale_, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
+							}
+						}
+					}
+				}
+			}
+
+			// get trackplot process time
+			end_ = std::chrono::system_clock::now();
+			std::chrono::duration<double> elapsed_seconds = end_ - start_;
+			std::cout << "Trackplot process took: " << elapsed_seconds.count() << "s\n";
+
+			// show and save video combined tracking frame
+			frame_count_ += 1;
+			cv::Mat combined_frame;
+			cv::hconcat(*frames_[0].get(), *frames_[1].get(), combined_frame);
+			imshow_resized_dual("Detection", combined_frame);
+			end_ = std::chrono::system_clock::now();
+			cv::waitKey(1);
 		}
 	);
 }
@@ -99,8 +195,12 @@ void McmtMultiTrackerNode::process_detection_callback()
 /**
  * This function processes the detection messsage information
  */
-std::vector<cv::Mat>> McmtMultiTrackerNode::process_msg_info(mcmt_msg::msg::MultiDetectionInfo::SharedPtr msg)
+void McmtMultiTrackerNode::process_msg_info(mcmt_msg::msg::MultiDetectionInfo::SharedPtr msg,
+	std::array<std::shared_ptr<cv::Mat>, 2> & frames,
+	std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks,
+	std::array<std::vector<int>, 2> & dead_tracks)
 {
+	// get both camera frames
 	auto frame_1 = std::shared_ptr<cv::Mat>(
 		new cv::Mat(
 			msg->image_one.height, msg->image_one.width, encoding2mat_type(msg->image_one.encoding),
@@ -110,11 +210,35 @@ std::vector<cv::Mat>> McmtMultiTrackerNode::process_msg_info(mcmt_msg::msg::Mult
 		new cv::Mat(
 			msg->image_two.height, msg->image_two.width, encoding2mat_type(msg->image_two.encoding),
 			const_cast<unsigned char *>(msg->image_two.data.data()), msg->image_two.step));
+	
+	frames.push_back(frame_1);
+	frames.push_back(frame_2);
 
+	// get dead tracks
+	std::vector<int> gonetracks_1(msg->gonetracks_id_one);
+	std::vector<int> gonetracks_2(msg->gonetracks_id_two);
+	dead_tracks.push_back(gonetracks_1);
+	dead_tracks.push_back(gonetracks_2);
+
+	// get good tracks
+	int total_num_tracks = msg->goodtracks_id_one.size();
+	for (i = 0; i < total_num_tracks; i++) {
+		auto good_track = std::shared_ptr<GoodTrack>(new GoodTrack());
+		good_track->id = msg->goodtracks_id_one[i];
+		good_track->x = msg->goodtracks_x_one[i];
+		good_track->y = msg->goodtracks_y_one[i];
+		good_tracks[0].push_back(good_track);
+	}
+
+	int total_num_tracks = msg->goodtracks_id_two.size();
+	for (i = 0; i < total_num_tracks; i++) {
+		auto good_track = std::shared_ptr<GoodTrack>(new GoodTrack());
+		good_track->id = msg->goodtracks_id_two[i];
+		good_track->x = msg->goodtracks_x_two[i];
+		good_track->y = msg->goodtracks_y_two[i];
+		good_tracks[1].push_back(good_track);
+	}
 }
-
-
-
 
 /**
  * This function declares our mcmt software parameters as ROS2 parameters.

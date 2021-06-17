@@ -50,19 +50,19 @@ class TrackPlot {
 		std::vector<std::shared_ptr<OtherTrack>> other_tracks_;
 
 		// declare methods
-		void update(std::vector<int> location, int frame_no);
-		void calculate_track_feature_variable(int frame_no, int fps);
-		void update_other_tracks(std::shared_ptr<CameraTracks> cumulative_tracks);
+		void update(std::vector<int> & location, int & frame_no);
+		void calculate_track_feature_variable(int & frame_no, int & fps);
+		void update_other_tracks(std::shared_ptr<CameraTracks> & cumulative_tracks);
 		bool check_stationary();
 };
 
 void combine_track_plots(
-	int index,
-	std::shared_ptr<CameraTracks> camera_tracks,
-	std::shared_ptr<mcmt::TrackPlot> track_plot,
-	int frame_count);
+	int & index,
+	std::shared_ptr<CameraTracks> & camera_tracks,
+	std::shared_ptr<mcmt::TrackPlot> & track_plot,
+	int & frame_count);
 
-std::vector<int> scalar_to_rgb(int scalar_value, int max_value);
+std::vector<int> scalar_to_rgb(int & scalar_value, int & max_value);
 }
 
 #endif	// MCMT_TRACK_UTILS_HPP_
