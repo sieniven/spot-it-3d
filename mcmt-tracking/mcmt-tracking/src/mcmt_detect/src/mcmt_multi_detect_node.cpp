@@ -21,7 +21,7 @@ using namespace mcmt;
 McmtMultiDetectNode::McmtMultiDetectNode()
 : Node("McmtMultiDetectNode")
 {
-	node_handle_ = std::shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});	
+	node_handle_ = std::shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});
 	declare_parameters();
 	get_parameters();
 	RCLCPP_INFO(this->get_logger(), "Initializing Mcmt Multi Detector Node");
