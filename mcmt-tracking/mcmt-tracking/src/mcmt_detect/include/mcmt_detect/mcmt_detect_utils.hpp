@@ -31,6 +31,8 @@ class Track {
 			int video_fps,
 			float sec_filter_delay);
 		
+  	virtual ~Track() {}
+		
 		// video parameters
 		int vid_fps_;
 		float sec_filter_delay_;
@@ -75,6 +77,8 @@ class Camera {
 			float background_ratio,
 			int nmixtures
 		);
+
+  	virtual ~Camera() {}
 
 		// declare video parameters
     cv::VideoCapture cap_;

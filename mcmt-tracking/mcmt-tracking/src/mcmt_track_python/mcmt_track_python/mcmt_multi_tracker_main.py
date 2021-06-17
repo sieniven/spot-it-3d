@@ -3,8 +3,8 @@ import rclpy
 import cv2
 
 # local imported code
-from mcmt_track.mcmt_multi_tracker_node import MultiTrackerNode
-from mcmt_track.mcmt_plot_utils import mcmt_plot
+from mcmt_track_python.mcmt_multi_tracker_node import MultiTrackerNode
+from mcmt_track_python.mcmt_plot_utils import mcmt_plot
 
 
 

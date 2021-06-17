@@ -16,7 +16,7 @@ from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 
 # local imported code
-from mcmt_track.mcmt_track_utils import TrackPlot, scalar_to_rgb
+from mcmt_track_python.mcmt_track_utils import TrackPlot, scalar_to_rgb
 
 
 class SingleTrackerNode(Node):

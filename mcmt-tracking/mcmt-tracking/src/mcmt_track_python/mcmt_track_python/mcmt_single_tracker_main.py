@@ -3,8 +3,8 @@ import rclpy
 import cv2
 
 # local imported code
-from mcmt_track.mcmt_single_tracker_node import SingleTrackerNode
-from mcmt_track.mcmt_plot_utils import plot_track_feature_variable, export_data_as_csv
+from mcmt_track_python.mcmt_single_tracker_node import SingleTrackerNode
+from mcmt_track_python.mcmt_plot_utils import plot_track_feature_variable, export_data_as_csv
 
 
 

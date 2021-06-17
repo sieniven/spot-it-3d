@@ -2,7 +2,7 @@ import os
 from setuptools import setup
 from glob import glob
 
-package_name = 'mcmt_track'
+package_name = 'mcmt_track_python'
 
 setup(
     name=package_name,
@@ -22,8 +22,8 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'mcmt_single_tracker = mcmt_track.mcmt_single_tracker_main:main',
-            'mcmt_multi_tracker = mcmt_track.mcmt_multi_tracker_main:main',
+            'mcmt_single_tracker = mcmt_track_python.mcmt_single_tracker_main:main',
+            'mcmt_multi_tracker = mcmt_track_python.mcmt_multi_tracker_main:main',
         ],
     },
 )

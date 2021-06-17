@@ -1,5 +1,4 @@
- 
-/** MCMT McmtMultiDetectNode Node
+ /** MCMT McmtMultiDetectNode Node
  * Author: Niven Sie, sieniven@gmail.com
  * 
  * This code contains the McmtMultiDetectNode node class that runs our camera, and publish the 

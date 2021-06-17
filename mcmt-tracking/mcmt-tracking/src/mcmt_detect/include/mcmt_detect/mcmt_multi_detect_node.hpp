@@ -1,7 +1,7 @@
-/** MCMT UVCDriver Node
+/** MCMT  Multi Camera Node Class
  * Author: Niven Sie, sieniven@gmail.com
  * 
- * This code contains the UVCDriver node class that runs our camera, and publish the 
+ * This code contains the McmtMultiDetectNode class that runs our camera, and publish the 
  * raw frames into our ROS2 DDS-RTPS ecosystem.
  */
 
@@ -35,6 +35,7 @@ namespace mcmt
 class McmtMultiDetectNode : public rclcpp::Node {
   public:
     McmtMultiDetectNode();
+  	virtual ~McmcMultiDetectNode() {}
 		
 		// declare node parameters
     rclcpp::Node::SharedPtr node_handle_;

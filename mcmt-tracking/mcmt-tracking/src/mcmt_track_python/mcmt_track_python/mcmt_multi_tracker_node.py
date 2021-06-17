@@ -15,7 +15,7 @@ from cv_bridge import CvBridge, CvBridgeError
 from mcmt_msg.msg import MultiDetectionInfo
 
 # local imported code
-from mcmt_track.mcmt_track_utils import CameraTracks, TrackPlot, combine_track_plots, scalar_to_rgb
+from mcmt_track_python.mcmt_track_utils import CameraTracks, TrackPlot, combine_track_plots, scalar_to_rgb
 
 
 class MultiTrackerNode(Node):
