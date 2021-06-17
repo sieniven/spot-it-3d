@@ -155,20 +155,20 @@ void McmtMultiTrackerNode::process_detection_callback()
 							// put ID and XYZ coordinates on opencv GUI
 							if (shown_indexes_.empty() == false) {
 								cv::putText(*frames_[i].get(), "ID: " + std::to_string(track_plot->id_), 
-									cv::Point(track_plot->xs_[-1], track_plot->ys_[-1] + 15), cv::FONT_HERSHEY_SIMPLEX,
+									cv::Point(track_plot->xs_.back(), track_plot->ys_.back() + 15), cv::FONT_HERSHEY_SIMPLEX,
 									font_scale_, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
 								
 								if (track_plot->xyz_.empty() == false) {
 									cv::putText(*frames_[i].get(), "X: " + std::to_string(track_plot->xyz_[0]),
-										cv::Point(track_plot->xs_[-1], track_plot->ys_[-1] + 30), cv::FONT_HERSHEY_SIMPLEX,
+										cv::Point(track_plot->xs_.back(), track_plot->ys_.back() + 30), cv::FONT_HERSHEY_SIMPLEX,
 										font_scale_, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
 
 									cv::putText(*frames_[i].get(), "Y: " + std::to_string(track_plot->xyz_[1]),
-										cv::Point(track_plot->xs_[-1], track_plot->ys_[-1] + 45), cv::FONT_HERSHEY_SIMPLEX,
+										cv::Point(track_plot->xs_.back(), track_plot->ys_.back() + 45), cv::FONT_HERSHEY_SIMPLEX,
 										font_scale_, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
 
 									cv::putText(*frames_[i].get(), "Z: " + std::to_string(track_plot->xyz_[2]),
-										cv::Point(track_plot->xs_[-1], track_plot->ys_[-1] + 60), cv::FONT_HERSHEY_SIMPLEX,
+										cv::Point(track_plot->xs_.back(), track_plot->ys_.back() + 60), cv::FONT_HERSHEY_SIMPLEX,
 										font_scale_, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
 								}
 							}
@@ -247,40 +247,527 @@ void McmtMultiTrackerNode::process_msg_info(mcmt_msg::msg::MultiDetectionInfo::S
 /**
  * this function creates new tracks and the addition to the cumulative tracks log for each frame
  */
-void update_cumulative_tracks(
+void McmtMultiTrackerNode::update_cumulative_tracks(
 	int & index,
 	std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks)
 {
 	int track_id, centroid_x, centroid_y;
-	for (auto & it : track : good_tracks[index]) {
+	for (auto & track : good_tracks[index]) {
 		track_id = track->id;
 		centroid_x = track->x;
 		centroid_y = track->y;
 
 		// occurance of a new track
-		if (track_id  
-
+		if (matching_dict_[index].find(track_id) == matching_dict_[index].end()) {
+			cumulative_tracks_[index]->track_new_plots_[track_id] = std::shared_ptr<TrackPlot>(
+				new TrackPlot(track_id));
+			matching_dict_[index][track_id] = track_id;
+		}
 	}
 }
 
-float McmtMultiTrackerNode::heading_error(TrackPlot & track_plot, TrackPlot & alt_track_plot, int & history)
+/**
+ * this function removes dead tracks if they have not appeared for more than 300 frames
+ */
+void McmtMultiTrackerNode::prune_tracks(
+	int & index,
+	std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks)
+{
+	std::vector<int> prune;
+	std::map<int, int>::iterator track;
+
+	// prune dead tracks if they have not appeared for more than 300 frames
+	for (track = cumulative_tracks_[index]->track_new_plots_.begin();
+		track != cumulative_tracks_[index]->track_new_plots_.end(); track++) {
+		if (frame_count_ - track->second->lastSeen_) > 60 {
+			prune.push_back(track-second->id_);
+		}
+	}
+
+	for (auto & track_id : prune) {
+		cumulative_tracks_[index]->track_new_plots_.erase(track_id);
+		matching_dict_[index].erase(track_id);
+		std::cout << track_id << " pruned" << std::endl;
+	}
+}
+
+/**
+ * checks matched tracks to see if they are still valid. also checks if multiple tracks
+ * within each camera are tracking the same target
+ */
+void McmtMultiTrackerNode::verify_existing_tracks()
+{
+	std::map<int, std::shared_ptr<mcmt::TrackPlot>>::iterator track, other_track;
+	std::vector<int> matched_ids;
+
+	for (track = cumulative_tracks_[0]->track_plots_.begin(); 
+		track != cumulative_track[0]->track_plots_.end(); track++) {
+		// search if alternate trackplot contains the same key
+		other_track = cumulative_tracks_[1]->track_plots_.find(track->first);
+		
+		if (other_track != cumulative_tracks_[1]->track_plots_.end()) {
+			// alternate trackplot contains the same key
+			matched_ids.push_back(track->first);
+		}
+	}
+
+	for (auto & matched_id : matched_ids) {
+		std::shared_ptr<TrackPlot> track_plot_0 = cumulative_tracks[0]->track_plots_[matched_id];
+		std::shared_ptr<TrackPlot> track_plot_1 = cumulative_tracks[1]->track_plots_[matched_id];
+
+		// normalization of cross correlation values
+		track_plot_normalize_xj = normalise_track_plot(track_plot_0);
+		alt_track_plot_normalize_xj = normalise_track_plot(track_plot_1);
+
+		// track feature variable correlation strength
+		r_value = 
+
+		// heading deviation error score
+		float heading_err = heading_error(track_plot_0, track_plot_1, 30);
+
+		if ((r_value < 0.4 && heading_err > 0.1 && track_plot_0->frameNos_.size() > 180 && track_plot_1->frameNos_.size() > 180) || 
+			(track_plot_0.check_stationary() != track_plot_1.check_stationary())) {
+			track_plot_0->mismatch_count_ += 1;
+			track_plot_1->mismatch_count_ += 1;
+		} else {
+			track_plot_0->mismatch_count_ = 0;
+			track_plot_1->mismatch_count_ = 0;
+		}
+
+		if (track_plot_0->mismatch_count_ >= 30 && track_plot_1->mismatch_count_ >= 30) {
+			track_plot_0->mismatch_count_ = 0;
+			track_plot_1->mismatch_count_ = 0;
+
+			std::map<int, int>::iterator it;
+			for (it = matching_dict_[0].begin(); it != matching_dict_[0].end(); it++) {
+				if (it->second == track_plot_0->id_) {
+					int original_track_id_0 = it->first;
+					break;
+				}
+			}
+
+			for (it = matching_dict_[1].begin(); it != matching_dict_[1].end(); it++) {
+				if (it->second == track_plot_1->id_) {
+					int original_track_id_1 = it->first;
+					break;
+				}
+			}
+
+			track_plot_0->id_ = original_track_id_0;
+			track_plot_1->id_ = original_track_id_1;
+
+			cumulative_tracks_[0]->track_new_plots_[original_track_id_0] = track_plot_0;
+			cumulative_tracks_[0]->track_plots_.erase(matched_id);
+
+			cumulative_tracks_[1]->track_new_plots_[original_track_id_1] = track_plot_1;
+			cumulative_tracks_[1]->track_plots_.erase(matched_id);
+
+			matching_dict_[0][original_track_id_0] = original_track_id_0;
+			matching_dict_[1][original_track_id_1] = original_track_id_1;
+	}
+}
+
+void McmtMultiTrackerNode::process_new_tracks(
+	index, alt,
+	std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks,
+	std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & filter_good_tracks,
+	std::array<std::vector<int>, 2> & dead_tracks)
+{
+	get_total_number_of_tracks();
+	std::map<int, std::map<int, float>> corrValues;
+	std::set<int> removeSet;
+
+	int row = 0;
+
+	int track_id, centroid_x, centroid_y;
+	for (auto &it : track : good_tracks[index])
+	{
+		// Extract details from the track
+		track_id = track->id;
+		centroid_x = track->x;
+		centroid_y = track->y;
+
+		if (std::find(cumulative_tracks_[index]->track_plots_.begin(),
+									cumulative_tracks_[index]->track_plots_.end(),
+									matching_dict[index][track_id]) != cumulative_tracks_[index]->track_plots_.end())
+		{
+
+			// Update track_new_plots with centroid and feature variable of every new frame
+			auto track_plot = cumulative_tracks_[index]->track_new_plots_[track_id];
+			track_plot.update(std::vector(centroid_x, centroid_y), frame_count_);
+			track_plot.calculate_track_feature_variable(frame_count_, fps_);
+
+			// Check if track feature variable has non-zero elements
+			float sum = 0 for (int i = 0; i < track_plot.track_feature_variable_.size(); i++)
+			{
+				sum += track_plot.track_feature_variable_[i];
+			}
+
+			// if track is not a new track, we use 90 frames as the minimum requirement before matching occurs
+			if (track_plot.frameNos_.size() >= 30 && track_plot.track_feature_variable_.size() >= 30 && sum != 0)
+			{
+				// look into 2nd camera's new tracks (new tracks first)
+				for (auto &it : alt_track_plot : cumulative_tracks_[alt]->track_new_plots_)
+				{
+
+					sum = 0;
+					for (int i = 0; i < alt_track_plot.track_feature_variable_.size(); i++)
+					{
+						sum += alt_track_plot.track_feature_variable_[i];
+					}
+					// track in 2nd camera must fulfills requirements to have at least 90 frames to match
+					if (alt_track_plot.frameNos_.size() >= 30 && alt_track_plot.track_feature_variable_.size() >= 30 && sum != 0)
+					{
+
+						float score = compute_matching_score(track_plot, alt_track_plot, index, alt);
+						if (score != 0)
+						{
+							corrValues[track_id][alt_track_plot.id_] = score;
+						}
+					}
+				}
+				// look into other camera's matched tracks list (old tracks last)
+				for (auto &it : alt_track_plot : cumulative_tracks_[alt]->track_plots_)
+				{
+
+					bool eligibility_flag = true;
+					// do not consider dead tracks from the other camera
+					for (auto &it : dead_track : dead_tracks[alt])
+					{
+						if (matching_dict[alt][dead_track->id] == alt_track_plot.id_)
+						{
+							eligibility_flag = false; // 2nd camera's track has already been lost. skip the process of matching for this track
+						}
+					}
+
+					for (auto &it : alt_track : good_tracks[index])
+					{
+						if (alt_track_plot.id_ == matching_dict[index][alt_track->id])
+						{
+							eligibility_flag = false; // 2nd camera's track has already been matched. skip the process of matching for this track
+						}
+					}
+
+					sum = 0;
+					for (int i = 0; i < alt_track_plot.track_feature_variable_.size(); i++)
+					{
+						sum += alt_track_plot.track_feature_variable_[i];
+					}
+
+					if (!eligibility_flag && sum != 0)
+					{
+						float score = compute_matching_score(track_plot, alt_track_plot, index, alt);
+						if (score != 0)
+						{
+							corrValues[track_id][alt_track_plot.id_] = score;
+						}
+					}
+				}
+			}
+
+			row += 1;
+		}
+
+		else
+		{
+			auto track_plot = cumulative_tracks_[index]->track_plots_[matching_dict[index][track_id]];
+			track_plot.update(std::vector(centroid_x, centroid_y), frame_count_);
+			track_plot.calculate_track_feature_variable(frame_count_, fps_);
+			filter_good_tracks[index].erase(filter_good_tracks[index].begin() + row);
+		}
+
+		for (auto &it : track : filter_good_tracks[index])
+		{
+			std::map<int, float> maxValues = corrValues[track->id];
+			int maxID = -1;
+			int global_max_flag = 0;
+
+			// for the selected max track in the 2nd camera, we check to see if the track has a higher
+			// cross correlation value with another track in current camera
+
+			while (global_max_flag == 0 && maxValues.size() != 0)
+			{
+				maxID = std::max_element(maxValues.begin(), maxValues.end(),
+																 [](const pair<int, float> &p1, const pair<int, float> &p2)
+																 { return p1.second < p2.second; });
+
+				float maxValue = maxValues[maxID];
+
+				// search through current camera's tracks again, for the selected track that we wish to re-id with.
+				// we can note that if there is a track in the current camera that has a higher cross correlation value
+				// than the track we wish to match with, then the matching will not occur.
+
+				for (auto &it : track_1 : filter_good_tracks[index])
+				{
+					if (std::find(corrValues[track_1->id].begin(), corrValues[track_1->id].end(), maxID) != corrValues[track_1->id].end())
+					{
+						if (corrValues[track_1->id][maxID] > maxValue)
+						{
+							maxValues.erase(maxID);
+							global_max_flag = 1;
+							break;
+						}
+					}
+				}
+
+				if (global_max_flag == 1)
+				{
+					// there existed a value larger than the current maxValue. thus, re-id cannot occur
+					global_max_flag = 0;
+					continue;
+				}
+				else
+				{
+					// went through the whole loop without breaking, thus it is the maximum value. re-id can occur
+					global_max_flag = 2;
+				}
+			}
+
+			// re-id process
+			if (global_max_flag == 2)
+			{
+
+				// if track is in 2nd camera's new track list
+				if (maxID != 1 && std::find(cumulative_tracks_[alt]->track_new_plots_.begin(),
+																		cumulative_tracks_[alt]->track_new_plots_.end(), maxID) !=
+															cumulative_tracks_[alt]->track_new_plots_.end())
+				{
+
+					// remove track plot in new tracks' list and add into matched tracks' list for alternate camera
+					cumulative_tracks_[alt]->track_new_plots_[maxID].id_ = next_id_;
+					cumulative_tracks_[alt]->track_plots_.insert({next_id_, cumulative_tracks_[alt]->track_new_plots_[maxID]});
+					// update dictionary matching
+					matching_dict[alt][maxID] = next_id_;
+					removeSet.insert(maxID);
+
+					// remove track plot in new tracks' list and add into matched tracks' list for current camera
+					int track_id = track->id;
+					auto track_plot = cumulative_tracks_[index]->track_new_plots_[track_id];
+					track_plot.id_ = next_id_;
+
+					cumulative_tracks_[index]->track_plots_.insert({next_id_, track_plot});
+					cumulative_tracks_[index]->track_new_plots_.erase(track_id);
+
+					// update dictionary matching list
+					matching_dict[index][track_id] = next_id_;
+					next_id_ += 1;
+				}
+
+				// if track is in 2nd camera's matched track list
+				else
+				{
+					int track_id = track->id;
+					auto track_plot = cumulative_tracks_[index]->track_new_plots_[track_id];
+					track_plot.id_ = cumulative_tracks_[alt]->track_plots_[maxID].id_;
+
+					// update track plot in the original track ID
+					combine_track_plots_(track_plot.id_, cumulative_tracks_[index], track_plot, frame_count_);
+
+					// update dictionary matching list
+					for (auto &it : old_id : matching_dict[index])
+					{
+						if (matching_dict[index][old_id] == track_plot.id_)
+						{
+							matching_dict[index][old_id] = old_id;
+							cumulative_tracks_[index]->track_new_plots_.insert({old_id, cumulative_tracks_[index].track_plots_[matching_dict[index][old_id]]});
+							cumulative_tracks_[index]->track_new_plots_[old_id].id_ = old_id;
+							break;
+						}
+					}
+
+					// remove track plot in new tracks' list
+					cumulative_tracks_[index]->track_plots_[track_plot.id_] = track_plot;
+					cumulative_tracks_[index]->track_new_plots__.erase(track_id);
+					matching_dict[index].insert({track_id, track_plot.id});
+				}
+			}
+		}
+
+		for (auto &it : remove_id : removeSet)
+		{
+			cumulative_tracks[alt]->track_new_plots_.erase(remove_id);
+		}
+	}
+}
+
+void McmtMultiTrackerNode::get_total_number_of_tracks()
+{
+	total_tracks_[0] = cumulative_tracks_[0]->track_new_plots_.size() + 
+		cumulative_tracks_[0]->track_plots_.size();
+	total_tracks_[1] = cumulative_tracks_[1]->track_new_plots_.size() + 
+		cumulative_tracks_[1]->track_plots_.size();
+}
+
+/**
+ * Normalises the existing track plot based on mean and sd
+ */
+std::vector<float> McmtMultiTrackerNode::normalise_track_plot(std::shared_ptr<mcmt::TrackPlot> track_plot)
+{
+	int total_track_feature = track_plot->track_feature_variable_.size();
+	float mean = 0, variance = 0, std;
+	std::vector<float> result;
+
+	// Mean
+	for (int i = 0; i < total_track_feature; i++){
+		mean += track_plot->track_feature_variable_[i];
+	}
+	mean = mean / total_track_feature;
+
+	// Variance and stdev
+	for (int i = 0; i < total_track_feature; i++){
+		variance += pow(track_plot->track_feature_variable_[i] - mean, 2);
+	}
+	variance = variance / total_track_feature;
+	std = sqrt(variance);
+
+	// Normalise
+	for (int i = 0; i < total_track_feature; i++){
+		float res = (track_plot->track_feature_variable_[i] - mean) / (std * sqrt(total_track_feature));
+		result.push_back(res);
+	}
+
+	return result;
+}
+
+float McmtMultiTrackerNode::compute_matching_score(std::shared_ptr<mcmt::TrackPlot> track_plot,
+		std::shared_ptr<mcmt::TrackPlot> alt_track_plot, int & index, int &alt)
+{
+	// Normalization of cross correlation values
+	auto track_plot_normalize_xj = normalise_track_plot(track_plot);
+	auto alt_track_plot_normalize_xj = normalise_track_plot(alt_track_plot);
+
+	// Updating of tracks in the local neighbourhood
+	mcmt::update_other_tracks(*track_plot, cumulative_tracks_[index]);
+	mcmt::update_other_tracks(*alt_track_plot, cumulative_tracks_[alt]);
+
+	// Track feature variable correlation strength
+	// How to set mode = "full" like in numpy correlate?
+	auto r_value = correlationCoefficient(track_plot_normalize_xj,
+					alt_track_plot_normalize_xj, track_plot_normalize_xj.size());
+
+	// Geometric track matching strength value
+	float geometric_strength = geometric_similarity(track_plot->other_tracks_, alt_track_plot->other_tracks_);
+
+	// Heading deviation error value
+	int track_history = 30;
+	float heading_err = heading_error(track_plot, alt_track_plot, track_history);
+
+	float w1 = 0.3;
+	float w2 = 0.4;
+	float w3 = 0.3;
+	float score = (w1 * r_value) + (w2 * geometric_strength) + (w3 * (1 - heading_err));
+
+	if (r_value > 0.4 && (geometric_strength == 0 || geometric_strength >= 0.5) && heading_err < 0.1){
+		return score;
+	}
+	else{
+		return 0;
+	}
+	
+	return 0;
+}
+
+/**
+ * Find cross correlation of two 1D arrays with size n
+ * Source: https://www.geeksforgeeks.org/program-find-correlation-coefficient/
+*/
+float McmtMultiTrackerNode::correlationCoefficient(std::vector<float> X, std::vector<float> Y, int n)
+{
+ 
+		float sum_X = 0, sum_Y = 0, sum_XY = 0;
+		float squareSum_X = 0, squareSum_Y = 0;
+ 
+		for (int i = 0; i < n; i++)
+		{
+				// sum of elements of array X.
+				sum_X = sum_X + X[i];
+ 
+				// sum of elements of array Y.
+				sum_Y = sum_Y + Y[i];
+ 
+				// sum of X[i] * Y[i].
+				sum_XY = sum_XY + X[i] * Y[i];
+ 
+				// sum of square of array elements.
+				squareSum_X = squareSum_X + X[i] * X[i];
+				squareSum_Y = squareSum_Y + Y[i] * Y[i];
+		}
+ 
+		// use formula for calculating correlation coefficient.
+		float corr = (float)(n * sum_XY - sum_X * sum_Y)
+									/ sqrt((n * squareSum_X - sum_X * sum_X)
+											* (n * squareSum_Y - sum_Y * sum_Y));
+ 
+		return corr;
+}
+
+float McmtMultiTrackerNode::geometric_similarity(
+	std::vector<mcmt::TrackPlot::OtherTrack> & other_tracks_0, 
+	std::vector<mcmt::TrackPlot::OtherTrack> & other_tracks_1)
+{
+	std::vector<float> relative_distances, shortest_distances;
+
+	int total_num_other_tracks_0 = other_tracks_0.size();
+	int total_num_other_tracks_1 = other_tracks_1.size();
+	for (int i = 0; i < total_num_other_tracks_0; i++){
+		float a_angle = other_tracks_0[i].angle;
+		float a_dist =  other_tracks_0[i].dist;
+		relative_distances.clear();
+		for (int j = 0; j < total_num_other_tracks_1; j++){
+			float b_angle = other_tracks_1[i].angle;
+			float b_dist=  other_tracks_1[i].dist;
+
+			relative_distances.push_back((std::min<float>(std::abs(a_angle - b_angle),
+				(2 * M_PI) - std::abs(a_angle - b_angle))) / M_PI * 
+				std::min<float>(a_dist / b_dist, b_dist / a_dist));
+		}
+
+		int total_num_relative_distances = relative_distances.size();
+		if (total_num_relative_distances > 0){
+			float minimum = relative_distances.front();
+			for (int i = 0; i < total_num_relative_distances; i++){
+				if (relative_distances[i] < minimum){
+					minimum = relative_distances[i];
+				}
+			}
+			shortest_distances.push_back(minimum);
+		}
+	}
+
+	int total_num_shortest_distances = shortest_distances.size();
+	if (total_num_shortest_distances > 0){
+		// Get average value of shortest_distances
+		int avg_shortest_distances = 0;
+		for (int i = 0; i < total_num_shortest_distances; i++){
+			avg_shortest_distances += shortest_distances[i];
+		}
+		avg_shortest_distances = avg_shortest_distances / total_num_shortest_distances;
+		return std::max(0, avg_shortest_distances)*10;
+	}
+	else {
+		return 0;
+	}
+}
+
+float McmtMultiTrackerNode::heading_error(std::shared_ptr<mcmt::TrackPlot> track_plot, 
+	std::shared_ptr<mcmt::TrackPlot> alt_track_plot, int & history)
 {
 	int deviation = 0;
-	auto dx_0 = track_plot.xs_.back() - track_plot.xs_[track_plot.xs_.size() - 2];
-	auto dy_0 = track_plot.ys_.back() - track_plot.xs_[track_plot.ys_.size() - 2];
+	auto dx_0 = track_plot->xs_.back() - track_plot->xs_[track_plot->xs_.size() - 2];
+	auto dy_0 = track_plot->ys_.back() - track_plot->xs_[track_plot->xs_.size() - 2];
 	auto rotation_0 = (atan2(dy_0, dx_0) + M_PI) / (2 * M_PI);
 
-	auto dx_1 = alt_track_plot.xs_.back() - alt_track_plot.xs_[alt_track_plot.xs_.size() - 2];
-	auto dy_1 = alt_track_plot.ys_.back() - alt_track_plot.xs_[alt_track_plot.ys_.size() - 2];
+	auto dx_1 = alt_track_plot->xs_.back() - alt_track_plot->xs_[alt_track_plot->xs_.size() - 2];
+	auto dy_1 = alt_track_plot->ys_.back() - alt_track_plot->xs_[alt_track_plot->ys_.size() - 2];
 	auto rotation_1 = (atan2(dy_1, dx_1) + M_PI) / (2 * M_PI);
 
-	for (int i = -2; i > 1-history; i--){ // Can help me double check if should be i > 1-history or i >= 1-history?
-		dx_0 = track_plot.xs_[i] - track_plot.xs_[track_plot.xs_[i-1]];
-		dy_0 = track_plot.ys_[i] - track_plot.ys_[track_plot.ys_[i-1]];
+	for (int i = -2; i > 1-history; i--) {
+		dx_0 = track_plot->xs_[i] - track_plot->xs_[i-1];
+		dy_0 = track_plot->ys_[i] - track_plot->ys_[i-1];
 		auto angle_0 = (atan2(dy_0, dx_0) + M_PI) / (2 * M_PI);
 
-		dx_1 = track_plot.xs_[i] - track_plot.xs_[track_plot.xs_[i-1]];
-		dy_1 = track_plot.ys_[i] - track_plot.ys_[track_plot.ys_[i-1]];
+		dx_1 = track_plot->xs_[i] - track_plot->xs_[i-1];
+		dy_1 = track_plot->ys_[i] - track_plot->ys_[i-1];
 		auto angle_1 = (atan2(dy_0, dx_0) + M_PI) / (2 * M_PI);
 
 		auto relative_0 = std::fmod(angle_0 - rotation_0, 1.0);
@@ -432,21 +919,21 @@ void McmtMultiTrackerNode::get_parameters()
 
 int McmtMultiTrackerNode::encoding2mat_type(const std::string & encoding)
 {
-    if (encoding == "mono8") {
-        return CV_8UC1;
-    } else if (encoding == "bgr8") {
-        return CV_8UC3;
-    } else if (encoding == "mono16") {
-        return CV_16SC1;
-    } else if (encoding == "rgba8") {
-        return CV_8UC4;
-    } else if (encoding == "bgra8") {
-        return CV_8UC4;
-    } else if (encoding == "32FC1") {
-        return CV_32FC1;
-    } else if (encoding == "rgb8") {
-        return CV_8UC3;
-    } else {
-        throw std::runtime_error("Unsupported encoding type");
-    }
+		if (encoding == "mono8") {
+				return CV_8UC1;
+		} else if (encoding == "bgr8") {
+				return CV_8UC3;
+		} else if (encoding == "mono16") {
+				return CV_16SC1;
+		} else if (encoding == "rgba8") {
+				return CV_8UC4;
+		} else if (encoding == "bgra8") {
+				return CV_8UC4;
+		} else if (encoding == "32FC1") {
+				return CV_32FC1;
+		} else if (encoding == "rgb8") {
+				return CV_8UC3;
+		} else {
+				throw std::runtime_error("Unsupported encoding type");
+		}
 }

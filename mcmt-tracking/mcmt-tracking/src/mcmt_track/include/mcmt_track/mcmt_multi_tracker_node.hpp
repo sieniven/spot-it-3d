@@ -75,7 +75,7 @@ class McmtMultiTrackerNode : public rclcpp::Node {
 		std::vector<int> origin_;
 		std::array<std::shared_ptr<mcmt::CameraTracks>, 2> cumulative_tracks_;
 		std::array<int, 2> total_tracks_;
-		std::map<int, int> matching_dict;
+		std::array<std::map<int, int>, 2> matching_dict_;
 
 		// declare plotting parameters
 		int plot_history_;
@@ -89,21 +89,24 @@ class McmtMultiTrackerNode : public rclcpp::Node {
 				std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks,
 				std::array<std::vector<int>, 2> & dead_tracks);
 
-		void process_detection_callback();
 		void declare_parameters();
 		void get_parameters();
-		void update_cumulative_tracks(
-			int & index, 
-			std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks);
-		// void prune_tracks();
-		// void verify_existing_tracks();
+		
+		void process_detection_callback();
+		void update_cumulative_tracks(int & index, std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks);
+		void prune_tracks(int & index, std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks);
+		void verify_existing_tracks();
 		// void process_new_tracks();
-		// void get_total_number_of_tracks();
-		// void normalise_track_plot();
-		// void compute_matching_score();
-		// void geometric_similarity();
-		// void geometric_similarity_relative();
-		float heading_error(mcmt::TrackPlot & track_plot, mcmt::TrackPlot & alt_track_plot, int & history);
+		void get_total_number_of_tracks();
+		void normalise_track_plot();
+		float correlationCoefficient(std::vector<float> X, std::vector<float> Y, int n);
+		float McmtMultiTrackerNode::compute_matching_score(std::shared_ptr<mcmt::TrackPlot> track_plot,
+			std::shared_ptr<mcmt::TrackPlot> alt_track_plot, int & index, int &alt);
+		float McmtMultiTrackerNode::geometric_similarity(
+			std::vector<mcmt::TrackPlot::OtherTrack> & other_tracks_0,
+			std::vector<mcmt::TrackPlot::OtherTrack> & other_tracks_1);
+		float heading_error(std::shared_ptr<mcmt::TrackPlot> track_plot, 
+			std::shared_ptr<mcmt::TrackPlot> alt_track_plot, int & history);
 		void calculate_3D();
 		void imshow_resized_dual(std::string & window_name, cv::Mat & img);
 		int encoding2mat_type(const std::string & encoding);
