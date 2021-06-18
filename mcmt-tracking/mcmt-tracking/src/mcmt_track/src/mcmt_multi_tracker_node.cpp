@@ -389,9 +389,8 @@ void McmtMultiTrackerNode::process_new_tracks(
 		centroid_x = track->x;
 		centroid_y = track->y;
 
-		if (std::find(cumulative_tracks_[index]->track_plots_.begin(),
-									cumulative_tracks_[index]->track_plots_.end(),
-									matching_dict_[index][track_id]) != cumulative_tracks_[index]->track_plots_.end())
+		if (cumulative_tracks_[index]->track_plots_.find(matching_dict_[index][track_id]) 
+			== cumulative_tracks_[index]->track_plots_.end())
 		{
 			std::vector<int> location;
 			location.push_back(centroid_x);
@@ -474,8 +473,7 @@ void McmtMultiTrackerNode::process_new_tracks(
 			}
 
 			row += 1;
-		}
-
+		} 
 		else
 		{
 			std::vector<int> location;
@@ -510,10 +508,9 @@ void McmtMultiTrackerNode::process_new_tracks(
 				// search through current camera's tracks again, for the selected track that we wish to re-id with.
 				// we can note that if there is a track in the current camera that has a higher cross correlation value
 				// than the track we wish to match with, then the matching will not occur.
-
 				for (auto & track_1 : filter_good_tracks[index])
 				{
-					if (std::find(corrValues[track_1->id].begin(), corrValues[track_1->id].end(), maxID) != corrValues[track_1->id].end())
+					if (corrValues[track_1->id].find(maxID) != corrValues[track_1->id].end())
 					{
 						if (corrValues[track_1->id][maxID] > maxValue)
 						{
@@ -540,12 +537,10 @@ void McmtMultiTrackerNode::process_new_tracks(
 			// re-id process
 			if (global_max_flag == 2)
 			{
-
 				// if track is in 2nd camera's new track list
-				if (maxID != 1 && std::find(cumulative_tracks_[alt]->track_new_plots_.begin(),
-					cumulative_tracks_[alt]->track_new_plots_.end(), maxID) != cumulative_tracks_[alt]->track_new_plots_.end())
+				if (maxID != 1 && 
+					(cumulative_tracks_[alt]->track_new_plots_.find(maxID) != cumulative_tracks_[alt]->track_new_plots_.end()))
 				{
-
 					// remove track plot in new tracks' list and add into matched tracks' list for alternate camera
 					cumulative_tracks_[alt]->track_new_plots_[maxID]->id_ = next_id_;
 					cumulative_tracks_[alt]->track_plots_.insert(
@@ -584,7 +579,7 @@ void McmtMultiTrackerNode::process_new_tracks(
 						{
 							matching_dict_[index][old_id->first] = old_id->first;
 							cumulative_tracks_[index]->track_new_plots_.insert({old_id->first, cumulative_tracks_[index]->track_plots_[matching_dict_[index][old_id->first]]});
-							cumulative_tracks_[index]->track_new_plots_[old_id->first].id_ = old_id->first;
+							cumulative_tracks_[index]->track_new_plots_[old_id->first]->id_ = old_id->first;
 							break;
 						}
 					}

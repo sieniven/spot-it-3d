@@ -38,7 +38,7 @@ int main(int argc, char * argv[])
 	sigIntHandler.sa_flags = 0;
 	sigaction(SIGINT, &sigIntHandler, NULL);
 
-	printf("Launching Multi Detector Node....\n");
+	printf("Launching Multi Tracker Node....\n");
 		
 	rclcpp::init(argc, argv);
 
