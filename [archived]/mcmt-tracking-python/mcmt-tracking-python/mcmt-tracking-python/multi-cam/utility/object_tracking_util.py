@@ -6,7 +6,7 @@ from scipy.spatial import distance
 from scipy.optimize import linear_sum_assignment
 
 # local imported codes
-from automatic_brightness import average_brightness
+from automatic_brightness import average_brightness, average_brightness_hsv
 import parameters as parm
 
 
@@ -86,6 +86,36 @@ def scalar_to_rgb(scalar_value, max_value):
     else:  # x == 5:
         return 255, 0, 255
 
+# Take in the original frame, and return two masked images: One contains the sky while the other contains non-sky components
+# This is for situations where there is bright sunlight reflecting off the drone, causing it to blend into sky
+# Increasing contrast of the whole image will detect drone but cause false positives in the background
+# Hence the sky must be extracted before a localised contrast increase can be applied to it
+# The sky is extracted by converting the image from RGB to HSV and applying thresholding + morphological operations
+def extract_sky(frame):
+    
+    # Convert image from RGB to HSV
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+
+    # Threshold the HSV image to extract the sky. A clear, sunlit sky has high V value (200 - 255)
+    lower = np.array([0, 0, parm.SKY_THRES])
+    upper = np.array([180, 255, 255])
+    sky = cv2.inRange(hsv, lower, upper)
+
+    # Also extract the non-sky component
+    lower = np.array([0, 0, 0])
+    upper = np.array([180, 255, parm.SKY_THRES])
+    non_sky = cv2.inRange(hsv, lower, upper)
+
+    # Morphologically open the image (erosion followed by dilation) to remove small patches of sky among the background
+    # These small patches of sky may be mistaken for drones if not removed
+    kernel = np.ones((5, 5), np.uint8)
+    sky = cv2.morphologyEx(sky, cv2.MORPH_OPEN, kernel, iterations=parm.DILATION_ITER)
+    
+    # Retrieve original RGB images with filtered sky using bitwise and
+    sky = cv2.bitwise_and(frame, frame, mask=sky)
+    non_sky = cv2.bitwise_and(frame, frame, mask=non_sky)
+
+    return sky, non_sky
 
 def remove_ground(im_in, dilation_iterations, background_contour_circularity, frame, index):
     kernel_dilation = np.ones((5, 5), np.uint8)
@@ -121,7 +151,7 @@ def imshow_resized(window_name, img):
 
     window_size = (int(600), int(600 / aspect_ratio))
     img = cv2.resize(img, window_size, interpolation=cv2.INTER_CUBIC)
-    # cv2.imshow(window_name, img)
+    cv2.imshow(window_name, img)
 
 
 def downsample_image(img):
@@ -177,13 +207,19 @@ def setup_system_objects(scale_factor):
 # formula is im_out = alpha * im_in + beta
 # Therefore to change brightness before contrast, we need to do alpha = 1 first
 def detect_objects(frame, mask, fgbg, detector, origin, index, scale_factor):
-    masked = cv2.convertScaleAbs(frame, alpha=1, beta=0)
+    if average_brightness_hsv(16, frame, mask) > parm.BRIGHTNESS_THRES:
+        # If sun compensation is required, extract the sky and apply localised contrast increase to it
+        # And then restore the non-sky (i.e. treeline) back into the image to avoid losing data
+        masked, non_sky = extract_sky(frame)
+        masked = cv2.convertScaleAbs(masked, alpha=2, beta=0)
+        masked = cv2.add(masked, non_sky)
+    else:
+        masked = cv2.convertScaleAbs(frame, alpha=1, beta=0)
+    imshow_resized("pre-backhground subtraction", masked)
     masked = cv2.convertScaleAbs(masked, alpha=1, beta=256 - average_brightness(16, frame, mask) + parm.BRIGHTNESS_GAIN)
     # masked = cv2.convertScaleAbs(masked, alpha=2, beta=128)
     # masked = cv2.cvtColor(masked, cv2.COLOR_BGR2GRAY)
     # masked = threshold_rgb(frame)
-
-    # imshow_resized("pre-backhground subtraction", masked)
 
     # Subtract Background
     # Learning rate affects how often the model is updated

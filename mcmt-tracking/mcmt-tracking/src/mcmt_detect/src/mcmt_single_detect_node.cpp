@@ -1,5 +1,8 @@
 /** MCMT McmtSingleDetectNode Node
- * Author: Niven Sie, sieniven@gmail.com
+ * Authors:
+ * Niven Sie (sieniven@gmail.com)
+ * Seah Shao Xuan (shaoxuan.seah@gmail.com)
+ * Lau Yan Han (sps08.lauyanhan@gmail.com)
  * 
  * This code contains the McmtSingleDetectNode node class that runs our camera, and publish the 
  * raw frames into our ROS2 DDS-RTPS ecosystem.
@@ -171,7 +174,6 @@ void McmtSingleDetectNode::start_record()
 		std::chrono::duration<double> elapsed_seconds = end-start;
 		std::cout << "Total number of tracks: " << tracks_.size() << std::endl;
 		std::cout << "Detection took: " << elapsed_seconds.count() << "s\n";
-
 	}
 }
 
@@ -191,13 +193,115 @@ void McmtSingleDetectNode::stop_record()
 cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 {
 	cv::Mat masked, converted_mask;
-	cv::convertScaleAbs(frame_, masked);
-	cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness() + BRIGHTNESS_GAIN_));
+
+	// Apply sun compensation when the sunlight level is above a certain threshold
+	if (average_brightness(cv::COLOR_BGR2HSV, 2) > BRIGHTNESS_THRES) {
+		masked = apply_sun_compensation();
+		cv::imshow("localised contrast frame", masked);
+	}
+	else {
+		// When sun compensation is not active, a simple contrast change is applied to the frame
+		cv::convertScaleAbs(frame_, masked);
+	}
+	cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness(cv::COLOR_BGR2GRAY, 0) + BRIGHTNESS_GAIN_));
 	
 	// subtract background
 	fgbg_->apply(masked, masked, FGBG_LEARNING_RATE_);
 	masked.convertTo(converted_mask, CV_8UC1);
 	return converted_mask;
+}
+
+/**
+ * Apply sun compensation on frame and return the sun compensated frame.
+ * Sun compensation is needed when there is sunlight illuminating the target and making
+ * it "blend" into sky. Increasing contrast of the entire frame is a solution, but it
+ * generates false positives among treeline. Instead, sun compensation works by applying
+ * localised contrast increase to regions of the frame identified as sky
+ */
+cv::Mat McmtSingleDetectNode::apply_sun_compensation()
+{
+	cv::Mat hsv, sky, non_sky, mask, result;
+
+	result = frame_.clone();
+	cv::inRange(result, cv::Scalar(0, 0, 0), cv::Scalar(110, 110, 110), mask);
+	result.setTo(cv::Scalar(0, 0, 0), mask);
+
+	cv::cvtColor(result, result, cv::COLOR_BGR2HSV);
+	cv::multiply(result, cv::Scalar(1, 0.3, 1), result);
+	cv::cvtColor(result, result, cv::COLOR_HSV2BGR);
+	
+	// // Get HSV version of the frame
+	// cv::cvtColor(frame_, hsv, cv::COLOR_BGR2HSV);
+
+	// // Threshold the HSV image to extract the sky and put it in sky frame
+	// // The lower bound of V for clear, sunlit sky is given in SKY_THRES
+	// // The sky frame is kept in HSV for further operations
+	// auto lower = cv::Scalar(0, 0, SKY_THRES);
+	// auto upper = cv::Scalar(180, 255, 255);
+	// cv::inRange(hsv, lower, upper, mask);
+	// cv::bitwise_and(hsv, hsv, sky, mask);
+	// // cv::imshow("sky", sky);
+
+	// // Extract the treeline and put it in non_sky frame
+	// // The mask for the treeline is the inversion of the sky mask
+	// // The treeline is converted back to RGB by using frame_ in the bitwise_and cmd
+	// cv::bitwise_not(mask, mask);
+	// cv::bitwise_and(frame_, frame_, non_sky, mask);
+	// // cv::imshow("non sky", non_sky);
+
+	// // Decrease saturation value of the sky frame to avoid whiteout
+	// // After this operation, the sky can be converted back to RGB
+	// cv::multiply(sky, cv::Scalar(1, 0.3, 1), sky);
+	// cv::cvtColor(sky, sky, cv::COLOR_HSV2BGR);
+
+	// sky.convertTo(sky, -1, MAX_SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
+	// cv::erode(sky, sky, cv::getStructuringElement(0, cv::Size(5,5)));
+
+	// // Recombine the sky and treeline
+	// // cv::add(blue, non_blue, sky);
+	// cv::add(sky, non_sky, result);
+
+	// // Set dark components to black
+	// lower = cv::Scalar(0, 0, 0);
+	// upper = cv::Scalar(110, 110, 110);
+	// cv::inRange(result, lower, upper, mask);
+	// result.setTo(cv::Scalar(0, 0, 0), mask);
+
+	return result;
+}
+
+/**
+ * This function calculates the value of contrast gain to be used in sun compensation
+ * The gain is calculated based on the percentage of pixels in the sky that are white
+ * The more white areas, the lower the gain should be to reduce probability of saturation
+ */
+float McmtSingleDetectNode::calc_sun_contrast_gain(cv::Mat sky)
+{
+	cv::Mat gray_sky, white;
+
+	// Convert the sky_ frame to grayscale to easily determine which pixels are white
+	cv::cvtColor(sky, gray_sky, cv::COLOR_BGR2GRAY);
+	// cv::imshow("Gray sky", gray_sky);
+
+	// The total number of pixels in the sky (rest of the image is black)
+	float total_sky_pix = cv::countNonZero(gray_sky);
+
+	// Threshold the gray sky image to find the white pixels and put them in the "white" frame
+	// Empirical observation shows white pixels in sky typically have grayscale value > 175
+	auto lower = cv::Scalar(175);
+    auto upper = cv::Scalar(255);
+    cv::inRange(gray_sky, lower, upper, white);
+	// cv::imshow("White parts", white);
+
+	// Total number of white pixels in the sky
+	float white_sky_pix = cv::countNonZero(white);
+
+	// Percentage of sky pixels that are white, from 0 - 1
+	float white_sky_percent = white_sky_pix / total_sky_pix;
+
+	// Sun contrast gain (a) assumed to have negative linear relationship with white_sky_percent (N)
+	// At N = 0, a = max sun contrast gain; At N = 1, a = 1
+	return MAX_SUN_CONTRAST_GAIN - (MAX_SUN_CONTRAST_GAIN - 1) * white_sky_percent;
 }
 
 void McmtSingleDetectNode::detect_objects()
@@ -781,20 +885,24 @@ std::vector<int> McmtSingleDetectNode::apply_hungarian_algo(
 }
 
 /**
- * This function calculates the average brightness value of the frame
+ * This function calculates the average brightness value of the frame.
+ * Takes in color conversion type (e.g. BGR2GRAY, BGR2HSV) and pointer to list of
+ * color channels that represent brightness (e.g. for HSV, use Channel 2, which is V)
+ * Returns the average brightness
  */
-int McmtSingleDetectNode::average_brightness()
-{
+int McmtSingleDetectNode::average_brightness(cv::ColorConversionCodes colortype, int channel)
+{	
 	// declare and initialize required variables
 	cv::Mat hist;
 	int bins = 16;
 	float hrange[] = {0, 256};
 	const float* range = {hrange};
 	float weighted_sum = 0;
+	int chan[1] = {channel};
 
-	// get grayscale frame and calculate histogram
-	cv::cvtColor(frame_, gray_, cv::COLOR_BGR2GRAY);
-	cv::calcHist(&gray_, 1, 0, cv::Mat(), hist, 1, &bins, &range, true, false);
+	// get color converted frame and calculate histogram
+	cv::cvtColor(frame_, color_converted_, colortype);
+	cv::calcHist(&color_converted_, 1, chan, cv::Mat(), hist, 1, &bins, &range, true, false);
 	cv::Scalar total_sum = cv::sum(hist);
 
 	// iterate through each bin
@@ -835,6 +943,12 @@ void McmtSingleDetectNode::declare_parameters()
 	this->declare_parameter("DILATION_ITER");
 	this->declare_parameter("REMOVE_GROUND_ITER");
 	this->declare_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
+
+	// declare sun compensation parameters
+	this->declare_parameter("BRIGHTNESS_THRES");
+	this->declare_parameter("SKY_THRES");
+	this->declare_parameter("MAX_SUN_CONTRAST_GAIN");
+	this->declare_parameter("SUN_BRIGHTNESS_GAIN");
 }
 
 /**
@@ -870,6 +984,12 @@ void McmtSingleDetectNode::get_parameters()
 	BACKGROUND_CONTOUR_CIRCULARITY_param = this->
 		get_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
 
+	// get sun compensation params
+	BRIGHTNESS_THRES_param = this->get_parameter("BRIGHTNESS_THRES");
+	SKY_THRES_param = this->get_parameter("SKY_THRES");
+	MAX_SUN_CONTRAST_GAIN_param = this->get_parameter("MAX_SUN_CONTRAST_GAIN");
+	SUN_BRIGHTNESS_GAIN_param = this->get_parameter("SUN_BRIGHTNESS_GAIN");
+
 	// initialize and get the parameter values
 	FRAME_WIDTH_ = FRAME_WIDTH_param.as_int(),
 	FRAME_HEIGHT_ = FRAME_HEIGHT_param.as_int(), 
@@ -890,6 +1010,10 @@ void McmtSingleDetectNode::get_parameters()
 	DILATION_ITER_ = DILATION_ITER_param.as_int(),
 	REMOVE_GROUND_ITER_ = REMOVE_GROUND_ITER_param.as_double(),
 	BACKGROUND_CONTOUR_CIRCULARITY_ = BACKGROUND_CONTOUR_CIRCULARITY_param.as_double();
+	BRIGHTNESS_THRES = BRIGHTNESS_THRES_param.as_int();
+	SKY_THRES = SKY_THRES_param.as_int();
+	MAX_SUN_CONTRAST_GAIN = MAX_SUN_CONTRAST_GAIN_param.as_double();
+	SUN_BRIGHTNESS_GAIN = SUN_BRIGHTNESS_GAIN_param.as_int();
 
 	// initialize video parameters
 	is_realtime_ = IS_REALTIME_param.as_bool();

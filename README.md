@@ -250,8 +250,9 @@ sudo docker-compose -f mcmt-multi-launch.yaml build
 
 ## 9. Acknowledgements
 
-We would like to thank the lead researcher in this project, Dr. Sutthiphong Srigrarom, for his continuous guidance and supervision with the development of this project. We would also like to acknowledge the hard work that everyone who have played a part in developing this software. The main developers for the software are Niven Sie Jun Liang and Seah Shao Xuan. Our research team for this project comprises of:
+We would like to thank the lead researcher in this project, Dr. Sutthiphong Srigrarom, for his continuous guidance and supervision with the development of this project. We would also like to acknowledge the hard work that everyone who have played a part in developing this software. The main developers for the software are Niven Sie Jun Liang, Seah Shao Xuan and Lau Yan Han. Our research team for this project comprises of:
 
 1. Dr. Sutthiphong Srigrarom (email: spot.srigrarom@nus.edu.sg, GitHub profile: spotkrub)
 2. Niven Sie Jun Liang (email: sieniven@gmail.com, GitHub profile: sieniven)
 3. Seah Shao Xuan (email: shaoxuan.seah@gmail.com, GitHub profile: seahhorse)
+4. Lau Yan Han (email: sps08.lauyanhan@gmail.com, GitHub profile: disgruntled-patzer)

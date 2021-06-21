@@ -78,7 +78,7 @@ class Camera {
 
 		// declare video parameters
     cv::VideoCapture cap_;
-		cv::Mat frame_, masked_, gray_, mask_, removebg_;
+		cv::Mat frame_, masked_, color_converted_, mask_, removebg_, sky_, non_sky_;
 		std::string video_input_;
     int cam_index_, frame_w_, frame_h_, fps_, next_id_;
 		float scale_factor_, aspect_ratio_;

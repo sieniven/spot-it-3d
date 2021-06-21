@@ -20,6 +20,10 @@ McmtSingleDetectNode:
     DILATION_ITER: 2
     REMOVE_GROUND_ITER: 5.75
     BACKGROUND_CONTOUR_CIRCULARITY: 0.5
+    BRIGHTNESS_THRES: 100
+    SKY_THRES: 100
+    MAX_SUN_CONTRAST_GAIN: 2.0
+    SUN_BRIGHTNESS_GAIN: 0
 
 McmtMultiDetectNode:
   ros__parameters:
@@ -44,6 +48,10 @@ McmtMultiDetectNode:
     DILATION_ITER: 2
     REMOVE_GROUND_ITER: 5.75
     BACKGROUND_CONTOUR_CIRCULARITY: 0.5
+    BRIGHTNESS_THRES: 100
+    SKY_THRES: 100
+    MAX_SUN_CONTRAST_GAIN: 2.0
+    SUN_BRIGHTNESS_GAIN: 0
 
 SingleTrackerNode:
   ros__parameters:
@@ -59,6 +67,8 @@ MultiTrackerNode:
     IS_REALTIME: True
     VIDEO_INPUT_1: "2"
     VIDEO_INPUT_2: "4"
+    CAMERA_INDEX_1: "1"
+    CAMERA_INDEX_2: "2"
     FRAME_WIDTH: 1920
     FRAME_HEIGHT: 1080
     OUTPUT_VIDEO_PATH: "/home/niven/spot-it-3d/data/video_plot.mp4"
