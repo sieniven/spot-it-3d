@@ -105,6 +105,13 @@ void McmtSingleDetectNode::start_record()
 			break;
 		}
 
+		// save a copy of the original frame before applying modifications to it
+		cv::Mat store;
+		store = frame_.clone();
+
+		// Correct for sunlight effects
+		apply_sun_compensation();
+
 		// apply background subtraction
 		masked_ = apply_bg_subtractions();
 
@@ -158,6 +165,9 @@ void McmtSingleDetectNode::start_record()
 		// filter the tracks
 		good_tracks_ = filter_tracks();
 
+		// restore the original frame to be written to trackplot's video output
+		frame_ = store.clone();
+
 		// show masked and frame
 		// cv::imshow("Frame", frame_);
 		// cv::imshow("Masked", masked_);
@@ -194,15 +204,9 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 {
 	cv::Mat masked, converted_mask;
 
-	// Apply sun compensation when the sunlight level is above a certain threshold
-	if (average_brightness(cv::COLOR_BGR2HSV, 2) > BRIGHTNESS_THRES) {
-		masked = apply_sun_compensation();
-		cv::imshow("localised contrast frame", masked);
-	}
-	else {
-		// When sun compensation is not active, a simple contrast change is applied to the frame
-		cv::convertScaleAbs(frame_, masked);
-	}
+	// Apply contrast and brightness gains
+	// To-do: Explain how the formula for calculating brightness in the 2nd line works
+	cv::convertScaleAbs(frame_, masked);
 	cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness(cv::COLOR_BGR2GRAY, 0) + BRIGHTNESS_GAIN_));
 	
 	// subtract background
@@ -218,17 +222,24 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
  * generates false positives among treeline. Instead, sun compensation works by applying
  * localised contrast increase to regions of the frame identified as sky
  */
-cv::Mat McmtSingleDetectNode::apply_sun_compensation()
+void McmtSingleDetectNode::apply_sun_compensation()
 {
-	cv::Mat hsv, sky, non_sky, mask, result;
+	cv::Mat mask;
 
-	result = frame_.clone();
-	cv::inRange(result, cv::Scalar(0, 0, 0), cv::Scalar(110, 110, 110), mask);
-	result.setTo(cv::Scalar(0, 0, 0), mask);
+	// For any dark regions (RGB channels all < 110), set it to black
+	auto lower = cv::Scalar(0, 0, 0);
+	auto upper = cv::Scalar(110, 110, 110);
+	auto transform = cv::Scalar(0, 0, 0);
+	cv::inRange(frame_, lower, upper, mask);
+	frame_.setTo(transform, mask);
 
-	cv::cvtColor(result, result, cv::COLOR_BGR2HSV);
-	cv::multiply(result, cv::Scalar(1, 0.3, 1), result);
-	cv::cvtColor(result, result, cv::COLOR_HSV2BGR);
+	// Decrease the saturation (using HSV frame)
+	cv::cvtColor(frame_, frame_, cv::COLOR_BGR2HSV);
+	transform = cv::Scalar(1, 0.3, 1);
+	cv::multiply(frame_, transform, frame_);
+	cv::cvtColor(frame_, frame_, cv::COLOR_HSV2BGR);
+
+	// cv::Mat hsv, sky, non_sky, mask, result;
 	
 	// // Get HSV version of the frame
 	// cv::cvtColor(frame_, hsv, cv::COLOR_BGR2HSV);
@@ -267,7 +278,7 @@ cv::Mat McmtSingleDetectNode::apply_sun_compensation()
 	// cv::inRange(result, lower, upper, mask);
 	// result.setTo(cv::Scalar(0, 0, 0), mask);
 
-	return result;
+	// return result;
 }
 
 /**

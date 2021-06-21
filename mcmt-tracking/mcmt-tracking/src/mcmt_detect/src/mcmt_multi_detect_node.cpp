@@ -75,6 +75,13 @@ void McmtMultiDetectNode::start_record()
 				break;
 			}
 
+			// save a copy of the original frame before applying modifications to it
+			cv::Mat store;
+			store = camera->frame_.clone();
+
+			// Correct for sunlight effects
+			apply_sun_compensation(camera);
+
 			// apply background subtraction
 			camera->masked_ = apply_bg_subtractions(camera);
 
@@ -128,6 +135,9 @@ void McmtMultiDetectNode::start_record()
 			// filter the tracks
 			camera->good_tracks_ = filter_tracks(camera);
 
+			// restore the original frame to be written to trackplot's video output
+			camera->frame_ = store.clone();
+
 			// show masked and frame
 			if (camera->cam_index_ == 1) {
 				// cv::imshow("Frame " + std::to_string(camera->cam_index_), camera->frame_);
@@ -166,15 +176,9 @@ cv::Mat McmtMultiDetectNode::apply_bg_subtractions(std::shared_ptr<mcmt::Camera>
 {
 	cv::Mat masked, converted_mask;
 
-	// Apply sun compensation when the sunlight level is above a certain threshold
-	if (average_brightness(camera, cv::COLOR_BGR2HSV, 2) > BRIGHTNESS_THRES) {
-		masked = apply_sun_compensation(camera);
-		cv::imshow("localised contrast frame", masked);
-	}
-	else {
-		// When sun compensation is not active, a simple contrast change is applied to the frame
-		cv::convertScaleAbs(camera->frame_, masked);
-	}
+	// Apply contrast and brightness gains
+	// To-do: Explain how the formula for calculating brightness in the 2nd line works
+	cv::convertScaleAbs(camera->frame_, masked);
 	cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness(camera, cv::COLOR_BGR2GRAY, 0) + BRIGHTNESS_GAIN_));
 	
 	// subtract background
@@ -190,17 +194,24 @@ cv::Mat McmtMultiDetectNode::apply_bg_subtractions(std::shared_ptr<mcmt::Camera>
  * generates false positives among treeline. Instead, sun compensation works by applying
  * localised contrast increase to regions of the frame identified as sky
  */
-cv::Mat McmtMultiDetectNode::apply_sun_compensation(std::shared_ptr<mcmt::Camera> & camera)
+void McmtMultiDetectNode::apply_sun_compensation(std::shared_ptr<mcmt::Camera> & camera)
 {
-	cv::Mat hsv, sky, non_sky, mask, result;
+	cv::Mat mask;
 
-	result = camera->frame_.clone();
-	cv::inRange(result, cv::Scalar(0, 0, 0), cv::Scalar(110, 110, 110), mask);
-	result.setTo(cv::Scalar(0, 0, 0), mask);
+	// For any dark regions (RGB channels all < 110), set it to black
+	auto lower = cv::Scalar(0, 0, 0);
+	auto upper = cv::Scalar(110, 110, 110);
+	auto transform = cv::Scalar(0, 0, 0);
+	cv::inRange(camera->frame_, lower, upper, mask);
+	camera->frame_.setTo(transform, mask);
 
-	cv::cvtColor(result, result, cv::COLOR_BGR2HSV);
-	cv::multiply(result, cv::Scalar(1, 0.3, 1), result);
-	cv::cvtColor(result, result, cv::COLOR_HSV2BGR);
+	// Decrease the saturation (using HSV frame)
+	cv::cvtColor(camera->frame_, camera->frame_, cv::COLOR_BGR2HSV);
+	transform = cv::Scalar(1, 0.3, 1);
+	cv::multiply(camera->frame_, transform, camera->frame_);
+	cv::cvtColor(camera->frame_, camera->frame_, cv::COLOR_HSV2BGR);
+
+	// cv::Mat hsv, sky, non_sky, mask, result;
 	
 	// // Get HSV version of the frame
 	// cv::cvtColor(camera->frame_, hsv, cv::COLOR_BGR2HSV);
@@ -253,7 +264,7 @@ cv::Mat McmtMultiDetectNode::apply_sun_compensation(std::shared_ptr<mcmt::Camera
 	// cv::add(blue, non_blue, sky);
 	// cv::add(sky, non_sky, result);
 
-	return result;
+	// return result;
 }
 
 /**
