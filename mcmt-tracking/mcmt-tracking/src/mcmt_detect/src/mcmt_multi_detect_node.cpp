@@ -75,14 +75,6 @@ void McmtMultiDetectNode::start_record()
 				break;
 			}
 
-			cv::Mat mask;
-			cv::inRange(camera->frame_, cv::Scalar(0, 0, 0), cv::Scalar(110, 110, 110), mask);
-			camera->frame_.setTo(cv::Scalar(0, 0, 0), mask);
-
-			cv::cvtColor(camera->frame_, camera->frame_, cv::COLOR_BGR2HSV);
-			cv::multiply(camera->frame_, cv::Scalar(1, 0.3, 1), camera->frame_);
-			cv::cvtColor(camera->frame_, camera->frame_, cv::COLOR_HSV2BGR);
-
 			// apply background subtraction
 			camera->masked_ = apply_bg_subtractions(camera);
 
@@ -201,57 +193,65 @@ cv::Mat McmtMultiDetectNode::apply_bg_subtractions(std::shared_ptr<mcmt::Camera>
 cv::Mat McmtMultiDetectNode::apply_sun_compensation(std::shared_ptr<mcmt::Camera> & camera)
 {
 	cv::Mat hsv, sky, non_sky, mask, result;
+
+	result = camera->frame_.clone();
+	cv::inRange(result, cv::Scalar(0, 0, 0), cv::Scalar(110, 110, 110), mask);
+	result.setTo(cv::Scalar(0, 0, 0), mask);
+
+	cv::cvtColor(result, result, cv::COLOR_BGR2HSV);
+	cv::multiply(result, cv::Scalar(1, 0.3, 1), result);
+	cv::cvtColor(result, result, cv::COLOR_HSV2BGR);
 	
-	// Get HSV version of the frame
-	cv::cvtColor(camera->frame_, hsv, cv::COLOR_BGR2HSV);
+	// // Get HSV version of the frame
+	// cv::cvtColor(camera->frame_, hsv, cv::COLOR_BGR2HSV);
 
-	// Threshold the HSV image to extract the sky and put it in sky frame
-	// The lower bound of V for clear, sunlit sky is given in SKY_THRES
-	// Conversion back to RGB is done using bitwise and
-	auto lower = cv::Scalar(0, 0, SKY_THRES);
-	auto upper = cv::Scalar(180, 255, 255);
-	cv::inRange(hsv, lower, upper, mask);
-	cv::bitwise_and(camera->frame_, camera->frame_, sky, mask);
-	// cv::imshow("sky", sky);
+	// // Threshold the HSV image to extract the sky and put it in sky frame
+	// // The lower bound of V for clear, sunlit sky is given in SKY_THRES
+	// // Conversion back to RGB is done using bitwise and
+	// auto lower = cv::Scalar(0, 0, SKY_THRES);
+	// auto upper = cv::Scalar(180, 255, 255);
+	// cv::inRange(hsv, lower, upper, mask);
+	// cv::bitwise_and(camera->frame_, camera->frame_, sky, mask);
+	// // cv::imshow("sky", sky);
 
-	// Extract the treeline and put it in non_sky frame
-	// The mask for the treeline is the inversion of the sky mask
-	cv::bitwise_not(mask, mask);
-	cv::bitwise_and(camera->frame_, camera->frame_, non_sky, mask);
-	// cv::imshow("non sky", non_sky);
+	// // Extract the treeline and put it in non_sky frame
+	// // The mask for the treeline is the inversion of the sky mask
+	// cv::bitwise_not(mask, mask);
+	// cv::bitwise_and(camera->frame_, camera->frame_, non_sky, mask);
+	// // cv::imshow("non sky", non_sky);
 
-	// Separate sky into blue and non-blue components using same thresholding method as above
-	cv::Mat blue, non_blue;
-	lower = cv::Scalar(120, 0, 0);
-	upper = cv::Scalar(255, 255, 255);
-	cv::inRange(sky, lower, upper, mask);
-	cv::bitwise_and(sky, sky, blue, mask);
-	// cv::imshow("Blue", blue);
-	cv::bitwise_not(mask, mask);
-	cv::bitwise_and(sky, sky, non_blue, mask);
-	// cv::imshow("Non Blue", non_blue);
+	// // Separate sky into blue and non-blue components using same thresholding method as above
+	// cv::Mat blue, non_blue;
+	// lower = cv::Scalar(120, 0, 0);
+	// upper = cv::Scalar(255, 255, 255);
+	// cv::inRange(sky, lower, upper, mask);
+	// cv::bitwise_and(sky, sky, blue, mask);
+	// // cv::imshow("Blue", blue);
+	// cv::bitwise_not(mask, mask);
+	// cv::bitwise_and(sky, sky, non_blue, mask);
+	// // cv::imshow("Non Blue", non_blue);
 
-	// Apply localised contrast change to blue parts of sky
-	bool white = 1;
-	if (white){
-		// 1st method: Set all blue regions to white (i.e. max out the contrast)
-		// Then perform erosion of white areas to increase size of non-white blobs
-		// Remmeber to invert back the mask because it was inverted for non-blue previously...
-		cv::bitwise_not(mask, mask);
-		blue.setTo(cv::Scalar(255, 255, 255), mask);
-		cv::erode(blue, blue, cv::getStructuringElement(0, cv::Size(10,10)));
-	}
-	else{
-		// 2nd method: Apply contrast increase
-		// float sun_contrast_gain = calc_sun_contrast_gain(sky);
-		// printf("Contrast Gain: %f\n", sun_contrast_gain);
-		// sky.convertTo(sky, -1, sun_contrast_gain, SUN_BRIGHTNESS_GAIN);
-		blue.convertTo(blue, -1, MAX_SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
-	}
+	// // Apply localised contrast change to blue parts of sky
+	// bool white = 1;
+	// if (white){
+	// 	// 1st method: Set all blue regions to white (i.e. max out the contrast)
+	// 	// Then perform erosion of white areas to increase size of non-white blobs
+	// 	// Remmeber to invert back the mask because it was inverted for non-blue previously...
+	// 	cv::bitwise_not(mask, mask);
+	// 	blue.setTo(cv::Scalar(255, 255, 255), mask);
+	// 	cv::erode(blue, blue, cv::getStructuringElement(0, cv::Size(10,10)));
+	// }
+	// else{
+	// 	// 2nd method: Apply contrast increase
+	// 	// float sun_contrast_gain = calc_sun_contrast_gain(sky);
+	// 	// printf("Contrast Gain: %f\n", sun_contrast_gain);
+	// 	// sky.convertTo(sky, -1, sun_contrast_gain, SUN_BRIGHTNESS_GAIN);
+	// 	blue.convertTo(blue, -1, MAX_SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
+	// }
 
-	// Recombine the sky and treeline
-	cv::add(blue, non_blue, sky);
-	cv::add(sky, non_sky, result);
+	// // Recombine the sky and treeline
+	// cv::add(blue, non_blue, sky);
+	// cv::add(sky, non_sky, result);
 
 	return result;
 }

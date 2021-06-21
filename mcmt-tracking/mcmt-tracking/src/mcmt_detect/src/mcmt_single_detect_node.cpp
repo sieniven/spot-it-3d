@@ -221,57 +221,51 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 cv::Mat McmtSingleDetectNode::apply_sun_compensation()
 {
 	cv::Mat hsv, sky, non_sky, mask, result;
+
+	result = frame_.clone();
+	cv::inRange(result, cv::Scalar(0, 0, 0), cv::Scalar(110, 110, 110), mask);
+	result.setTo(cv::Scalar(0, 0, 0), mask);
+
+	cv::cvtColor(result, result, cv::COLOR_BGR2HSV);
+	cv::multiply(result, cv::Scalar(1, 0.3, 1), result);
+	cv::cvtColor(result, result, cv::COLOR_HSV2BGR);
 	
-	// Get HSV version of the frame
-	cv::cvtColor(frame_, hsv, cv::COLOR_BGR2HSV);
+	// // Get HSV version of the frame
+	// cv::cvtColor(frame_, hsv, cv::COLOR_BGR2HSV);
 
-	// Threshold the HSV image to extract the sky and put it in sky frame
-	// The lower bound of V for clear, sunlit sky is given in SKY_THRES
-	// Conversion back to RGB is done using bitwise and
-	auto lower = cv::Scalar(0, 0, SKY_THRES);
-	auto upper = cv::Scalar(180, 255, 255);
-	cv::inRange(hsv, lower, upper, mask);
-	cv::bitwise_and(frame_, frame_, sky, mask);
-	// cv::imshow("sky", sky);
+	// // Threshold the HSV image to extract the sky and put it in sky frame
+	// // The lower bound of V for clear, sunlit sky is given in SKY_THRES
+	// // The sky frame is kept in HSV for further operations
+	// auto lower = cv::Scalar(0, 0, SKY_THRES);
+	// auto upper = cv::Scalar(180, 255, 255);
+	// cv::inRange(hsv, lower, upper, mask);
+	// cv::bitwise_and(hsv, hsv, sky, mask);
+	// // cv::imshow("sky", sky);
 
-	// Extract the treeline and put it in non_sky frame
-	// The mask for the treeline is the inversion of the sky mask
-	cv::bitwise_not(mask, mask);
-	cv::bitwise_and(frame_, frame_, non_sky, mask);
-	// cv::imshow("non sky", non_sky);
+	// // Extract the treeline and put it in non_sky frame
+	// // The mask for the treeline is the inversion of the sky mask
+	// // The treeline is converted back to RGB by using frame_ in the bitwise_and cmd
+	// cv::bitwise_not(mask, mask);
+	// cv::bitwise_and(frame_, frame_, non_sky, mask);
+	// // cv::imshow("non sky", non_sky);
 
-	// Separate sky into blue and non-blue components using same thresholding method as above
-	cv::Mat blue, non_blue;
-	lower = cv::Scalar(120, 0, 0);
-	upper = cv::Scalar(255, 255, 255);
-	cv::inRange(sky, lower, upper, mask);
-	cv::bitwise_and(sky, sky, blue, mask);
-	// cv::imshow("Blue", blue);
-	cv::bitwise_not(mask, mask);
-	cv::bitwise_and(sky, sky, non_blue, mask);
-	// cv::imshow("Non Blue", non_blue);
+	// // Decrease saturation value of the sky frame to avoid whiteout
+	// // After this operation, the sky can be converted back to RGB
+	// cv::multiply(sky, cv::Scalar(1, 0.3, 1), sky);
+	// cv::cvtColor(sky, sky, cv::COLOR_HSV2BGR);
 
-	// Apply localised contrast change to blue parts of sky
-	bool white = 1;
-	if (white){
-		// 1st method: Set all blue regions to white (i.e. max out the contrast)
-		// Then perform erosion of white areas to increase size of non-white blobs
-		// Remmeber to invert back the mask because it was inverted for non-blue previously...
-		cv::bitwise_not(mask, mask);
-		blue.setTo(cv::Scalar(255, 255, 255), mask);
-		cv::erode(blue, blue, cv::getStructuringElement(0, cv::Size(10,10)));
-	}
-	else{
-		// 2nd method: Apply contrast increase
-		// float sun_contrast_gain = calc_sun_contrast_gain(sky);
-		// printf("Contrast Gain: %f\n", sun_contrast_gain);
-		// sky.convertTo(sky, -1, sun_contrast_gain, SUN_BRIGHTNESS_GAIN);
-		blue.convertTo(blue, -1, MAX_SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
-	}
+	// sky.convertTo(sky, -1, MAX_SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
+	// cv::erode(sky, sky, cv::getStructuringElement(0, cv::Size(5,5)));
 
-	// Recombine the sky and treeline
-	cv::add(blue, non_blue, sky);
-	cv::add(sky, non_sky, result);
+	// // Recombine the sky and treeline
+	// // cv::add(blue, non_blue, sky);
+	// cv::add(sky, non_sky, result);
+
+	// // Set dark components to black
+	// lower = cv::Scalar(0, 0, 0);
+	// upper = cv::Scalar(110, 110, 110);
+	// cv::inRange(result, lower, upper, mask);
+	// result.setTo(cv::Scalar(0, 0, 0), mask);
 
 	return result;
 }
