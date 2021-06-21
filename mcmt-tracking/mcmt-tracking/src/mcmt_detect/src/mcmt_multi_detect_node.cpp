@@ -1,6 +1,9 @@
  
 /** MCMT McmtMultiDetectNode Node
- * Author: Niven Sie, sieniven@gmail.com
+ * Authors:
+ * Niven Sie (sieniven@gmail.com)
+ * Seah Shao Xuan (shaoxuan.seah@gmail.com)
+ * Lau Yan Han (sps08.lauyanhan@gmail.com)
  * 
  * This code contains the McmtMultiDetectNode node class that runs our camera, and publish the 
  * raw frames into our ROS2 DDS-RTPS ecosystem.
@@ -71,6 +74,14 @@ void McmtMultiDetectNode::start_record()
 				std::raise(SIGINT);
 				break;
 			}
+
+			cv::Mat mask;
+			cv::inRange(camera->frame_, cv::Scalar(0, 0, 0), cv::Scalar(110, 110, 110), mask);
+			camera->frame_.setTo(cv::Scalar(0, 0, 0), mask);
+
+			cv::cvtColor(camera->frame_, camera->frame_, cv::COLOR_BGR2HSV);
+			cv::multiply(camera->frame_, cv::Scalar(1, 0.3, 1), camera->frame_);
+			cv::cvtColor(camera->frame_, camera->frame_, cv::COLOR_HSV2BGR);
 
 			// apply background subtraction
 			camera->masked_ = apply_bg_subtractions(camera);

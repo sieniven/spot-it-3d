@@ -1,5 +1,8 @@
 /** MCMT McmtSingleDetectNode Node
- * Author: Niven Sie, sieniven@gmail.com
+ * Authors:
+ * Niven Sie (sieniven@gmail.com)
+ * Seah Shao Xuan (shaoxuan.seah@gmail.com)
+ * Lau Yan Han (sps08.lauyanhan@gmail.com)
  * 
  * This code contains the McmtSingleDetectNode node class that runs our camera, and publish the 
  * raw frames into our ROS2 DDS-RTPS ecosystem.
