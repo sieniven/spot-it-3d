@@ -231,11 +231,11 @@ void McmtSingleDetectNode::apply_sun_compensation()
 	cv::cvtColor(frame_, hsv, cv::COLOR_BGR2HSV);
 
 	// Threshold the HSV image to extract the sky and put it in sky frame
-	// The lower bound of V for clear, sunlit sky is given in SKY_THRES
+	// The threshold V value for sky is determined using Otsu thresholding
 	// The sky frame is kept in HSV for further operations
-	auto lower = cv::Scalar(0, 0, SKY_THRES);
-	auto upper = cv::Scalar(180, 255, 255);
-	cv::inRange(hsv, lower, upper, mask);
+	std::vector<cv::Mat> channels;
+	cv::split(hsv, channels);
+	cv::threshold(channels[2], mask, -1, 255, cv::THRESH_OTSU);
 	cv::bitwise_and(hsv, hsv, sky, mask);
 	// cv::imshow("sky", sky);
 
