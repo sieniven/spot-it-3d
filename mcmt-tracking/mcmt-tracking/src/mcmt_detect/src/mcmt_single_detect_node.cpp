@@ -216,7 +216,7 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 }
 
 /**
- * Apply sun compensation on frame and return the sun compensated frame.
+ * Apply sun compensation on frame
  * Sun compensation is needed when there is sunlight illuminating the target and making
  * it "blend" into sky. Increasing contrast of the entire frame is a solution, but it
  * generates false positives among treeline. Instead, sun compensation works by applying
@@ -224,61 +224,39 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
  */
 void McmtSingleDetectNode::apply_sun_compensation()
 {
-	cv::Mat mask;
 
-	// For any dark regions (RGB channels all < 110), set it to black
-	auto lower = cv::Scalar(0, 0, 0);
-	auto upper = cv::Scalar(110, 110, 110);
-	auto transform = cv::Scalar(0, 0, 0);
-	cv::inRange(frame_, lower, upper, mask);
-	frame_.setTo(transform, mask);
-
-	// Decrease the saturation (using HSV frame)
-	cv::cvtColor(frame_, frame_, cv::COLOR_BGR2HSV);
-	transform = cv::Scalar(1, 0.3, 1);
-	cv::multiply(frame_, transform, frame_);
-	cv::cvtColor(frame_, frame_, cv::COLOR_HSV2BGR);
-
-	// cv::Mat hsv, sky, non_sky, mask, result;
+	cv::Mat hsv, sky, non_sky, mask;
 	
-	// // Get HSV version of the frame
-	// cv::cvtColor(frame_, hsv, cv::COLOR_BGR2HSV);
+	// Get HSV version of the frame
+	cv::cvtColor(frame_, hsv, cv::COLOR_BGR2HSV);
 
-	// // Threshold the HSV image to extract the sky and put it in sky frame
-	// // The lower bound of V for clear, sunlit sky is given in SKY_THRES
-	// // The sky frame is kept in HSV for further operations
-	// auto lower = cv::Scalar(0, 0, SKY_THRES);
-	// auto upper = cv::Scalar(180, 255, 255);
-	// cv::inRange(hsv, lower, upper, mask);
-	// cv::bitwise_and(hsv, hsv, sky, mask);
-	// // cv::imshow("sky", sky);
+	// Threshold the HSV image to extract the sky and put it in sky frame
+	// The lower bound of V for clear, sunlit sky is given in SKY_THRES
+	// The sky frame is kept in HSV for further operations
+	auto lower = cv::Scalar(0, 0, SKY_THRES);
+	auto upper = cv::Scalar(180, 255, 255);
+	cv::inRange(hsv, lower, upper, mask);
+	cv::bitwise_and(hsv, hsv, sky, mask);
+	// cv::imshow("sky", sky);
 
-	// // Extract the treeline and put it in non_sky frame
-	// // The mask for the treeline is the inversion of the sky mask
-	// // The treeline is converted back to RGB by using frame_ in the bitwise_and cmd
-	// cv::bitwise_not(mask, mask);
-	// cv::bitwise_and(frame_, frame_, non_sky, mask);
-	// // cv::imshow("non sky", non_sky);
+	// Extract the treeline and put it in non_sky frame
+	// The mask for the treeline is the inversion of the sky mask
+	// The treeline is converted back to RGB by using frame_ in the bitwise_and cmd
+	cv::bitwise_not(mask, mask);
+	cv::bitwise_and(frame_, frame_, non_sky, mask);
+	// cv::imshow("non sky", non_sky);
 
-	// // Decrease saturation value of the sky frame to avoid whiteout
-	// // After this operation, the sky can be converted back to RGB
-	// cv::multiply(sky, cv::Scalar(1, 0.3, 1), sky);
-	// cv::cvtColor(sky, sky, cv::COLOR_HSV2BGR);
+	// Decrease saturation value of the sky frame to avoid whiteout
+	// After this operation, the sky can be converted back to RGB
+	cv::multiply(sky, cv::Scalar(1, 0.3, 1), sky);
+	cv::cvtColor(sky, sky, cv::COLOR_HSV2BGR);
 
 	// sky.convertTo(sky, -1, MAX_SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
 	// cv::erode(sky, sky, cv::getStructuringElement(0, cv::Size(5,5)));
 
-	// // Recombine the sky and treeline
-	// // cv::add(blue, non_blue, sky);
-	// cv::add(sky, non_sky, result);
-
-	// // Set dark components to black
-	// lower = cv::Scalar(0, 0, 0);
-	// upper = cv::Scalar(110, 110, 110);
-	// cv::inRange(result, lower, upper, mask);
-	// result.setTo(cv::Scalar(0, 0, 0), mask);
-
-	// return result;
+	// Recombine the sky and treeline
+	cv::add(sky, non_sky, frame_);
+	cv::imshow("After sun compensation", frame_);
 }
 
 /**
