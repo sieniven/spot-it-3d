@@ -121,6 +121,7 @@ class McmtSingleDetectNode : public rclcpp::Node {
 		cv::Mat remove_ground();
 		cv::Mat apply_bg_subtractions();
 		void apply_sun_compensation();
+		cv::Mat scale_hsv_pixels(cv::Mat sky, int avg_brightness);
 		float calc_sun_contrast_gain(cv::Mat sky);
 		void predict_new_locations_of_tracks();
 		void detection_to_track_assignment_KF();
@@ -135,7 +136,7 @@ class McmtSingleDetectNode : public rclcpp::Node {
 		// declare utility functions
 		double euclideanDist(cv::Point2f & p, cv::Point2f & q);
 		std::vector<int> apply_hungarian_algo(std::vector<std::vector<double>> & cost_matrix);
-		int average_brightness(cv::ColorConversionCodes colortype, int channel);
+		int average_brightness(cv::ColorConversionCodes colortype, int channel, cv::Mat mask);
     std::string mat_type2encoding(int mat_type);
 		int encoding2mat_type(const std::string & encoding);
 };
