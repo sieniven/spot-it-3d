@@ -207,8 +207,7 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 	// Apply contrast and brightness gains
 	// To-do: Explain how the formula for calculating brightness in the 2nd line works
 	cv::convertScaleAbs(frame_, masked);
-	cv::convertScaleAbs(masked, masked, 1, 
-						(256 - average_brightness(cv::COLOR_BGR2GRAY, 0, cv::Mat()) + BRIGHTNESS_GAIN_));
+	cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness(cv::COLOR_BGR2GRAY, 0) + BRIGHTNESS_GAIN_));
 	
 	// subtract background
 	fgbg_->apply(masked, masked, FGBG_LEARNING_RATE_);
@@ -240,9 +239,6 @@ void McmtSingleDetectNode::apply_sun_compensation()
 	cv::bitwise_and(frame_, frame_, sky, mask);
 	// cv::imshow("sky", sky);
 
-	// average brightness of the sky frame (treeline pixels are not accounted for)
-	int avg_brightness = average_brightness(cv::COLOR_BGR2HSV, 2, mask);
-
 	// Extract the treeline and put it in non_sky frame
 	// The mask for the treeline is the inversion of the sky mask
 	// The treeline is converted back to RGB by using frame_ in the bitwise_and cmd
@@ -251,7 +247,7 @@ void McmtSingleDetectNode::apply_sun_compensation()
 	// cv::imshow("non sky", non_sky);
 
 	// Scale the saturation and contrast based on pixel brightness
-	sky = scale_hsv_pixels(sky, avg_brightness);
+	sky = scale_hsv_pixels(sky);
 
 	// sky.convertTo(sky, -1, MAX_SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
 	// cv::erode(sky, sky, cv::getStructuringElement(0, cv::Size(5,5)));
@@ -265,7 +261,7 @@ void McmtSingleDetectNode::apply_sun_compensation()
  * This function does contrast and saturation scaling on each pixel of the
  * sky frame for sun compensation purposes
  */
-cv::Mat McmtSingleDetectNode::scale_hsv_pixels(cv::Mat sky, int avg_brightness)
+cv::Mat McmtSingleDetectNode::scale_hsv_pixels(cv::Mat sky)
 {
 	// HSV is used to easily adjust saturation and value
 	cv::cvtColor(sky, sky, cv::COLOR_BGR2HSV);
@@ -277,14 +273,16 @@ cv::Mat McmtSingleDetectNode::scale_hsv_pixels(cv::Mat sky, int avg_brightness)
 			// ignore black pixels (these are areas which are masked out)
 			if (sky.at<cv::Vec3b>(row, col)[2] > 0){
 
-				// If the pixel is too dark, max its value to provide contrast
-                if (sky.at<cv::Vec3b>(row, col)[2] < avg_brightness){
-                    sky.at<cv::Vec3b>(row, col)[2] = 255;
-                }
+				// Decrease saturation based on how bright the pixel is
+				// The brighter the pixel, the greater the decrease
+				// The formula used is our own model that assumes linear relationship
+				// between saturation scale factor (sat) and pixel brightness
+				float sat = 1 - 0.7 * sky.at<cv::Vec3b>(row, col)[2] / 255;
+				sky.at<cv::Vec3b>(row, col)[1] *= sat;
 
-				// If the pixel is bright, decrease its saturation to prevent whiteout
-                else{
-                    sky.at<cv::Vec3b>(row, col)[1] *= 0.5;
+				// If the pixel is too dark, max its value to provide contrast
+                if (sky.at<cv::Vec3b>(row, col)[2] < 150){
+                    sky.at<cv::Vec3b>(row, col)[2] = 255;
                 }
             }
         }
@@ -913,7 +911,7 @@ std::vector<int> McmtSingleDetectNode::apply_hungarian_algo(
  * color channels that represent brightness (e.g. for HSV, use Channel 2, which is V)
  * Returns the average brightness
  */
-int McmtSingleDetectNode::average_brightness(cv::ColorConversionCodes colortype, int channel, cv::Mat mask)
+int McmtSingleDetectNode::average_brightness(cv::ColorConversionCodes colortype, int channel)
 {	
 	// declare and initialize required variables
 	cv::Mat hist;
@@ -925,7 +923,7 @@ int McmtSingleDetectNode::average_brightness(cv::ColorConversionCodes colortype,
 
 	// get color converted frame and calculate histogram
 	cv::cvtColor(frame_, color_converted_, colortype);
-	cv::calcHist(&color_converted_, 1, chan, mask, hist, 1, &bins, &range, true, false);
+	cv::calcHist(&color_converted_, 1, chan, cv::Mat(), hist, 1, &bins, &range, true, false);
 	cv::Scalar total_sum = cv::sum(hist);
 
 	// iterate through each bin
