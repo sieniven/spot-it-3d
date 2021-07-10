@@ -45,7 +45,7 @@ McmtMultiTrackerNode::McmtMultiTrackerNode()
 	aspect_ratio_ = frame_w_ / frame_h_;
 	fps_ = int(cap_.get(cv::CAP_PROP_FPS));
 
-	if video frame size is too big, downsize
+	// if video frame size is too big, downsize
 	downsample_ = false;
 	if ((frame_w_ * frame_h_) > (FRAME_WIDTH_ * FRAME_HEIGHT_)) {
 		downsample_ = true;
@@ -849,7 +849,7 @@ double McmtMultiTrackerNode::compute_matching_score(std::shared_ptr<mcmt::TrackP
 	// 	lines.push_back(line);
 	// }
 
-	if (r_value > 0.4 && (geometric_strength == 0 || geometric_strength >= 0.5) && heading_err < 0.1 && score >= 0.7){
+	if (r_value > 0.4 && (geometric_strength == 0 || geometric_strength >= 0.5) && heading_err < 0.1 && score >= 0.75){
 	//if (r_value > 0.45 && heading_err < 0.1){
 		return score;
 	}
