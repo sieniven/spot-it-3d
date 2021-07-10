@@ -71,6 +71,14 @@ void McmtMultiDetectNode::start_record()
 				break;
 			}
 
+			// cv::Mat mask;
+			// cv::inRange(camera->frame_, cv::Scalar(0, 0, 0), cv::Scalar(110, 110, 110), mask);
+			// camera->frame_.setTo(cv::Scalar(0, 0, 0), mask);
+
+			cv::cvtColor(camera->frame_, camera->frame_, cv::COLOR_BGR2HSV);
+			cv::multiply(camera->frame_, cv::Scalar(1, 0.3, 1), camera->frame_);
+			cv::cvtColor(camera->frame_, camera->frame_, cv::COLOR_HSV2BGR);
+
 			// apply background subtraction
 			camera->masked_ = apply_bg_subtractions(camera);
 
@@ -706,20 +714,20 @@ std::vector<std::shared_ptr<Track>> McmtMultiDetectNode::filter_tracks(std::shar
 					track->is_goodtrack_ = true;
 					good_tracks.push_back(track);
 				}
-				cv::Point2i rect_top_left((track->centroid_.x - (track->size_ / 2)), 
-																	(track->centroid_.y - (track->size_ / 2)));
+				cv::Point2i rect_top_left((track->centroid_.x - (track->size_)), 
+																	(track->centroid_.y - (track->size_)));
 				
-				cv::Point2i rect_bottom_right((track->centroid_.x + (track->size_ / 2)), 
-																			(track->centroid_.y + (track->size_ / 2)));
+				cv::Point2i rect_bottom_right((track->centroid_.x + (track->size_)), 
+																			(track->centroid_.y + (track->size_)));
 				
 				if (track->consecutiveInvisibleCount_ == 0) {
 					// green color bounding box if track is detected in the current frame
-					cv::rectangle(camera->frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);
-					cv::rectangle(camera->masked_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);
+					// cv::rectangle(camera->frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 2);
+					cv::rectangle(camera->masked_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 2);
 				} else {
 					// red color bounding box if track is not detected in the current frame
-					cv::rectangle(camera->frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 0, 255), 1);
-					cv::rectangle(camera->masked_, rect_top_left, rect_bottom_right, cv::Scalar(0, 0, 255), 1);
+					// cv::rectangle(camera->frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 0, 255), 2);
+					cv::rectangle(camera->masked_, rect_top_left, rect_bottom_right, cv::Scalar(0, 0, 255), 2);
 				}
 			}
 		}
@@ -899,6 +907,7 @@ void McmtMultiDetectNode::publish_info()
 		std::vector<int16_t> goodtrack_id_list;
 		std::vector<int16_t> goodtrack_x_list;
 		std::vector<int16_t> goodtrack_y_list;
+		std::vector<int16_t> goodtrack_size_list;
 		std::vector<int16_t> deadtrack_id_list;
 
 		// get good track's information
@@ -906,6 +915,7 @@ void McmtMultiDetectNode::publish_info()
 			goodtrack_id_list.push_back(track->id_);
 			goodtrack_x_list.push_back(track->centroid_.x);
 			goodtrack_y_list.push_back(track->centroid_.y);
+			goodtrack_size_list.push_back(track->size_);
 		}
 
 		// get gone track ids
@@ -919,6 +929,7 @@ void McmtMultiDetectNode::publish_info()
 			dect_info.goodtracks_id_one = goodtrack_id_list;
 			dect_info.goodtracks_x_one = goodtrack_x_list;
 			dect_info.goodtracks_y_one = goodtrack_y_list;
+			dect_info.goodtracks_size_one = goodtrack_size_list;
 			dect_info.gonetracks_id_one = deadtrack_id_list;
 
 		} else {
@@ -926,6 +937,7 @@ void McmtMultiDetectNode::publish_info()
 			dect_info.goodtracks_id_two = goodtrack_id_list;
 			dect_info.goodtracks_x_two = goodtrack_x_list;
 			dect_info.goodtracks_y_two = goodtrack_y_list;
+			dect_info.goodtracks_size_two = goodtrack_size_list;
 			dect_info.gonetracks_id_two = deadtrack_id_list;
 		}
 

@@ -34,12 +34,12 @@ class TrackPlot {
 
 		// declare track information
 		int id_, lastSeen_, mismatch_count_;
-		std::vector<int> xs_, ys_, frameNos_, xyz_;
-		std::vector<float> turning_angle_, curvature_, pace_, track_feature_variable_;
+		std::vector<int> xs_, ys_, size_, frameNos_;
+		std::vector<float> xyz_, turning_angle_, curvature_, pace_, track_feature_variable_;
 		std::vector<std::shared_ptr<OtherTrack>> other_tracks_;
 
 		// declare methods
-		void update(std::vector<int> & location, int & frame_no);
+		void update(std::vector<int> & location, int & size, int & frame_no);
 		void calculate_track_feature_variable(int & frame_no, int & fps);
 		bool check_stationary();
 };

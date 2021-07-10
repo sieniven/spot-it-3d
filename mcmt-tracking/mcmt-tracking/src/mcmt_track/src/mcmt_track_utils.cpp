@@ -43,11 +43,12 @@ TrackPlot::TrackPlot(int track_id)
 /**
  * This function updates the track with the latest track information
  */
-void TrackPlot::update(std::vector<int> & location, int & frame_no)
+void TrackPlot::update(std::vector<int> & location, int & size, int & frame_no)
 {
 	xs_.push_back(location[0]);
 	ys_.push_back(location[1]);
 	frameNos_.push_back(frame_no);
+	size_.push_back(size);
 	lastSeen_ = frame_no;
 }
 
@@ -104,8 +105,8 @@ bool TrackPlot::check_stationary()
 	float distance = 0.0;
 
 	for (int i = -1; i >= -9; i--) {
-		int dx = xs_.end()[i] - xs_.end()[i-1];
-		int dy = ys_.end()[i] - ys_.end()[i-1];
+		int dx = xs_[xs_.size() + i] - xs_[xs_.size() + i - 1];
+		int dy = ys_[ys_.size() + i] - ys_[ys_.size() + i - 1];
 
 		// get euclidean distance, and add to total distance
 		distance += hypot(dx, dy);
@@ -133,6 +134,7 @@ void mcmt::update_other_tracks(std::shared_ptr<mcmt::TrackPlot> trackplot,
 	std::map<int, std::shared_ptr<mcmt::TrackPlot>>::iterator other_track;
 	for (other_track = cumulative_track->track_plots_.begin(); 
 		other_track != cumulative_track->track_plots_.end(); other_track++) {
+
 		if (other_track->second->xs_.size() != 0 && other_track->second->ys_.size() != 0) {
 			int dx = other_track->second->xs_.end()[-1] - trackplot->xs_.end()[-1];
 			int dy = other_track->second->ys_.end()[-1] - trackplot->ys_.end()[-1];
@@ -215,39 +217,34 @@ std::vector<int> mcmt::scalar_to_rgb(int & scalar_value, int & max_value)
 	// create empty vector
 	std::vector<int> output;
 
-	float a = (1 - (scalar_value / max_value)) * 5;
+	double a = (1.0 - ((double) scalar_value / (double) max_value)) * 5.0;
 	int x = int(floor(a));
-	int y = int(floor(255 * (a - x)));
+	int y = int(floor(255 * (a - (double) x)));
 
 	if (x == 0) {
 		output.push_back(255);
 		output.push_back(y);
 		output.push_back(0);
-		return output;
 	} else if (x == 1) {
 		output.push_back(255);
 		output.push_back(255);
 		output.push_back(0);
-		return output;
 	} else if (x == 2) {
 		output.push_back(0);
 		output.push_back(255);
 		output.push_back(y);
-		return output;
 	} else if (x == 3) {
 		output.push_back(0);
 		output.push_back(255);
 		output.push_back(255);
-		return output;
 	} else if (x == 4) {
 		output.push_back(y);
 		output.push_back(0);
 		output.push_back(255);
-		return output;
 	} else {	// x = 5
 		output.push_back(255);
 		output.push_back(0);
 		output.push_back(255);
-		return output;
 	}
+	return output;
 }
