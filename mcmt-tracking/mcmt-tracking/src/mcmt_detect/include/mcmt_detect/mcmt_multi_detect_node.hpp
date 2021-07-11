@@ -97,6 +97,7 @@ class McmtMultiDetectNode : public rclcpp::Node {
 		cv::Mat remove_ground(std::shared_ptr<mcmt::Camera> & camera);
 		cv::Mat apply_bg_subtractions(std::shared_ptr<mcmt::Camera> & camera);
 		void apply_sun_compensation(std::shared_ptr<mcmt::Camera> & camera);
+		cv::Mat scale_hsv_pixels(cv::Mat sky);
 		float calc_sun_contrast_gain(cv::Mat sky);
 		void predict_new_locations_of_tracks(std::shared_ptr<mcmt::Camera> & camera);
 		void detection_to_track_assignment_KF(std::shared_ptr<mcmt::Camera> & camera);
