@@ -291,40 +291,6 @@ cv::Mat McmtSingleDetectNode::scale_hsv_pixels(cv::Mat sky)
     return sky;
 }
 
-/**
- * This function calculates the value of contrast gain to be used in sun compensation
- * The gain is calculated based on the percentage of pixels in the sky that are white
- * The more white areas, the lower the gain should be to reduce probability of saturation
- */
-float McmtSingleDetectNode::calc_sun_contrast_gain(cv::Mat sky)
-{
-	cv::Mat gray_sky, white;
-
-	// Convert the sky_ frame to grayscale to easily determine which pixels are white
-	cv::cvtColor(sky, gray_sky, cv::COLOR_BGR2GRAY);
-	// cv::imshow("Gray sky", gray_sky);
-
-	// The total number of pixels in the sky (rest of the image is black)
-	float total_sky_pix = cv::countNonZero(gray_sky);
-
-	// Threshold the gray sky image to find the white pixels and put them in the "white" frame
-	// Empirical observation shows white pixels in sky typically have grayscale value > 175
-	auto lower = cv::Scalar(175);
-    auto upper = cv::Scalar(255);
-    cv::inRange(gray_sky, lower, upper, white);
-	// cv::imshow("White parts", white);
-
-	// Total number of white pixels in the sky
-	float white_sky_pix = cv::countNonZero(white);
-
-	// Percentage of sky pixels that are white, from 0 - 1
-	float white_sky_percent = white_sky_pix / total_sky_pix;
-
-	// Sun contrast gain (a) assumed to have negative linear relationship with white_sky_percent (N)
-	// At N = 0, a = max sun contrast gain; At N = 1, a = 1
-	return MAX_SUN_CONTRAST_GAIN - (MAX_SUN_CONTRAST_GAIN - 1) * white_sky_percent;
-}
-
 void McmtSingleDetectNode::detect_objects()
 {
 	removebg_ = remove_ground();

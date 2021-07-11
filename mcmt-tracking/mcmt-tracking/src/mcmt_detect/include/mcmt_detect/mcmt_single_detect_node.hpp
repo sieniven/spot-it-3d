@@ -122,7 +122,6 @@ class McmtSingleDetectNode : public rclcpp::Node {
 		cv::Mat apply_bg_subtractions();
 		void apply_sun_compensation();
 		cv::Mat scale_hsv_pixels(cv::Mat sky);
-		float calc_sun_contrast_gain(cv::Mat sky);
 		void predict_new_locations_of_tracks();
 		void detection_to_track_assignment_KF();
 		void detection_to_track_assignment_DCF();
