@@ -216,7 +216,7 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
 }
 
 /**
- * Apply sun compensation on frame and return the sun compensated frame.
+ * Apply sun compensation on frame
  * Sun compensation is needed when there is sunlight illuminating the target and making
  * it "blend" into sky. Increasing contrast of the entire frame is a solution, but it
  * generates false positives among treeline. Instead, sun compensation works by applying
@@ -224,95 +224,71 @@ cv::Mat McmtSingleDetectNode::apply_bg_subtractions()
  */
 void McmtSingleDetectNode::apply_sun_compensation()
 {
-	cv::Mat mask;
 
-	// For any dark regions (RGB channels all < 110), set it to black
-	auto lower = cv::Scalar(0, 0, 0);
-	auto upper = cv::Scalar(110, 110, 110);
-	auto transform = cv::Scalar(0, 0, 0);
-	cv::inRange(frame_, lower, upper, mask);
-	frame_.setTo(transform, mask);
-
-	// Decrease the saturation (using HSV frame)
-	cv::cvtColor(frame_, frame_, cv::COLOR_BGR2HSV);
-	transform = cv::Scalar(1, 0.3, 1);
-	cv::multiply(frame_, transform, frame_);
-	cv::cvtColor(frame_, frame_, cv::COLOR_HSV2BGR);
-
-	// cv::Mat hsv, sky, non_sky, mask, result;
+	cv::Mat hsv, sky, non_sky, mask;
 	
-	// // Get HSV version of the frame
-	// cv::cvtColor(frame_, hsv, cv::COLOR_BGR2HSV);
+	// Get HSV version of the frame
+	cv::cvtColor(frame_, hsv, cv::COLOR_BGR2HSV);
 
-	// // Threshold the HSV image to extract the sky and put it in sky frame
-	// // The lower bound of V for clear, sunlit sky is given in SKY_THRES
-	// // The sky frame is kept in HSV for further operations
-	// auto lower = cv::Scalar(0, 0, SKY_THRES);
-	// auto upper = cv::Scalar(180, 255, 255);
-	// cv::inRange(hsv, lower, upper, mask);
-	// cv::bitwise_and(hsv, hsv, sky, mask);
-	// // cv::imshow("sky", sky);
+	// Threshold the HSV image to extract the sky and put it in sky frame
+	// The threshold V value for sky is determined using Otsu thresholding
+	// Get back the original RGB frame using bitwise_and
+	std::vector<cv::Mat> channels;
+	cv::split(hsv, channels);
+	cv::threshold(channels[2], mask, -1, 255, cv::THRESH_OTSU);
+	cv::bitwise_and(frame_, frame_, sky, mask);
+	// cv::imshow("sky", sky);
 
-	// // Extract the treeline and put it in non_sky frame
-	// // The mask for the treeline is the inversion of the sky mask
-	// // The treeline is converted back to RGB by using frame_ in the bitwise_and cmd
-	// cv::bitwise_not(mask, mask);
-	// cv::bitwise_and(frame_, frame_, non_sky, mask);
-	// // cv::imshow("non sky", non_sky);
+	// Extract the treeline and put it in non_sky frame
+	// The mask for the treeline is the inversion of the sky mask
+	// The treeline is converted back to RGB by using frame_ in the bitwise_and cmd
+	cv::bitwise_not(mask, mask);
+	cv::bitwise_and(frame_, frame_, non_sky, mask);
+	// cv::imshow("non sky", non_sky);
 
-	// // Decrease saturation value of the sky frame to avoid whiteout
-	// // After this operation, the sky can be converted back to RGB
-	// cv::multiply(sky, cv::Scalar(1, 0.3, 1), sky);
-	// cv::cvtColor(sky, sky, cv::COLOR_HSV2BGR);
+	// Scale the saturation and contrast based on pixel brightness
+	sky = scale_hsv_pixels(sky);
 
 	// sky.convertTo(sky, -1, MAX_SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
 	// cv::erode(sky, sky, cv::getStructuringElement(0, cv::Size(5,5)));
 
-	// // Recombine the sky and treeline
-	// // cv::add(blue, non_blue, sky);
-	// cv::add(sky, non_sky, result);
-
-	// // Set dark components to black
-	// lower = cv::Scalar(0, 0, 0);
-	// upper = cv::Scalar(110, 110, 110);
-	// cv::inRange(result, lower, upper, mask);
-	// result.setTo(cv::Scalar(0, 0, 0), mask);
-
-	// return result;
+	// Recombine the sky and treeline
+	cv::add(sky, non_sky, frame_);
+	cv::imshow("After sun compensation", frame_);
 }
 
 /**
- * This function calculates the value of contrast gain to be used in sun compensation
- * The gain is calculated based on the percentage of pixels in the sky that are white
- * The more white areas, the lower the gain should be to reduce probability of saturation
+ * This function does contrast and saturation scaling on each pixel of the
+ * sky frame for sun compensation purposes
  */
-float McmtSingleDetectNode::calc_sun_contrast_gain(cv::Mat sky)
+cv::Mat McmtSingleDetectNode::scale_hsv_pixels(cv::Mat sky)
 {
-	cv::Mat gray_sky, white;
+	// HSV is used to easily adjust saturation and value
+	cv::cvtColor(sky, sky, cv::COLOR_BGR2HSV);
+	
+	// iterate through each pixel in the hsv sky frame
+	for (int row = 0; row < sky.rows; row++){
+        for (int col = 0; col < sky.cols; col++){
+            
+			// ignore black pixels (these are areas which are masked out)
+			if (sky.at<cv::Vec3b>(row, col)[2] > 0){
 
-	// Convert the sky_ frame to grayscale to easily determine which pixels are white
-	cv::cvtColor(sky, gray_sky, cv::COLOR_BGR2GRAY);
-	// cv::imshow("Gray sky", gray_sky);
+				// Decrease saturation based on how bright the pixel is
+				// The brighter the pixel, the greater the decrease
+				// The formula used is our own model that assumes linear relationship
+				// between saturation scale factor (sat) and pixel brightness
+				float sat = 1 - 0.7 * sky.at<cv::Vec3b>(row, col)[2] / 255;
+				sky.at<cv::Vec3b>(row, col)[1] *= sat;
 
-	// The total number of pixels in the sky (rest of the image is black)
-	float total_sky_pix = cv::countNonZero(gray_sky);
-
-	// Threshold the gray sky image to find the white pixels and put them in the "white" frame
-	// Empirical observation shows white pixels in sky typically have grayscale value > 175
-	auto lower = cv::Scalar(175);
-    auto upper = cv::Scalar(255);
-    cv::inRange(gray_sky, lower, upper, white);
-	// cv::imshow("White parts", white);
-
-	// Total number of white pixels in the sky
-	float white_sky_pix = cv::countNonZero(white);
-
-	// Percentage of sky pixels that are white, from 0 - 1
-	float white_sky_percent = white_sky_pix / total_sky_pix;
-
-	// Sun contrast gain (a) assumed to have negative linear relationship with white_sky_percent (N)
-	// At N = 0, a = max sun contrast gain; At N = 1, a = 1
-	return MAX_SUN_CONTRAST_GAIN - (MAX_SUN_CONTRAST_GAIN - 1) * white_sky_percent;
+				// If the pixel is too dark, max its value to provide contrast
+                if (sky.at<cv::Vec3b>(row, col)[2] < 150){
+                    sky.at<cv::Vec3b>(row, col)[2] = 255;
+                }
+            }
+        }
+    }
+	cv::cvtColor(sky, sky, cv::COLOR_HSV2BGR);
+    return sky;
 }
 
 void McmtSingleDetectNode::detect_objects()
