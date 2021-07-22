@@ -40,11 +40,9 @@
 #include <signal.h>
 #include <stdlib.h>
 
-using namespace std;
-using namespace cv;
 using namespace mcmt;
 
-class InterruptException : public exception {
+class InterruptException : public std::exception {
 	public:
 		InterruptException(int s) : S(s) {}
 		int S;
@@ -66,14 +64,14 @@ int main(int argc, char * argv[]) {
 	rclcpp::init(argc, argv);
 
 	// initialize detector node
-	auto track_node = make_shared<McmtMultiTrackerNode>();
+	auto track_node = std::make_shared<McmtMultiTrackerNode>();
 
 	try {
 		rclcpp::spin(track_node);
 	} catch(InterruptException& e) {
 		printf("Multi Camera Tracker Node interrupted. Saving video and shutting down...\n");
 		track_node->recording_.release();
-		destroyAllWindows();
+		cv::destroyAllWindows();
 		rclcpp::shutdown();
 		return 1;
 	}

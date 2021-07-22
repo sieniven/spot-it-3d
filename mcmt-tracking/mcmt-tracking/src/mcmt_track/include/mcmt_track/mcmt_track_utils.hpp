@@ -35,8 +35,6 @@
 #include <list>
 #include <array>
 
-using namespace std;
-
 namespace mcmt {
 
 	/**
@@ -56,12 +54,12 @@ namespace mcmt {
 
 			// declare track information
 			int id_, lastSeen_, mismatch_count_;
-			vector<int> xs_, ys_, size_, frameNos_;
-			vector<float> xyz_, turning_angle_, curvature_, pace_, track_feature_variable_;
-			vector<shared_ptr<OtherTrack>> other_tracks_;
+			std::vector<int> xs_, ys_, size_, frameNos_;
+			std::vector<float> xyz_, turning_angle_, curvature_, pace_, track_feature_variable_;
+			std::vector<std::shared_ptr<OtherTrack>> other_tracks_;
 
 			// declare methods
-			void update(vector<int> & location, int & size, int & frame_no);
+			void update(std::vector<int> & location, int & size, int & frame_no);
 			void calculate_track_feature_variable(int & frame_no, int & fps);
 			bool check_stationary();
 	};
@@ -78,16 +76,16 @@ namespace mcmt {
 			int index_;
 
 			// declare track plot variables
-			map<int, shared_ptr<TrackPlot>> track_plots_, track_new_plots_;
+			std::map<int, std::shared_ptr<TrackPlot>> track_plots_, track_new_plots_;
 	};
 
-	void update_other_tracks(shared_ptr<TrackPlot> trackplot, 
-		shared_ptr<CameraTracks> & cumulative_track);
+	void update_other_tracks(std::shared_ptr<TrackPlot> trackplot, 
+		std::shared_ptr<CameraTracks> & cumulative_track);
 
 	void combine_track_plots(
 		int & index,
-		shared_ptr<CameraTracks> camera_tracks,
-		shared_ptr<TrackPlot> track_plot,
+		std::shared_ptr<CameraTracks> camera_tracks,
+		std::shared_ptr<TrackPlot> track_plot,
 		int & frame_count);
 
 }

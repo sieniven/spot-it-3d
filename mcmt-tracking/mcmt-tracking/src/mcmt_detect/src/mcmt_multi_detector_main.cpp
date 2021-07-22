@@ -39,28 +39,23 @@
 #include <csignal>
 #include <stdio.h>
 
-using namespace std;
-using namespace mcmt;
-
-sig_atomic_t signalled = 0;
+std::sig_atomic_t signalled = 0;
 
 void signal_handler(int signal_num) {
 	signalled = 1;
-	
 	printf("Multi Camera Detector Node interrupted. Shutting down...\n");
 	rclcpp::shutdown();
 }
 
 int main(int argc, char * argv[]) {
-
 	printf("Launching Multi Detector Node....\n");
 
-	signal(SIGINT, signal_handler);
+	std::signal(SIGINT, signal_handler);
 
 	rclcpp::init(argc, argv);
 
 	// initialize detector node
-	auto detect_node = make_shared<McmtMultiDetectNode>();
+	auto detect_node = std::make_shared<mcmt::McmtMultiDetectNode>();
 
 	while (signalled == false) {
 		detect_node->start_record();

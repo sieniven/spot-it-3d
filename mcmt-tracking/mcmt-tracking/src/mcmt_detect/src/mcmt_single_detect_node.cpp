@@ -37,27 +37,25 @@
 #include <functional>
 #include "Hungarian.h"
 
-using namespace std;
-using namespace cv;
 using namespace mcmt;
 
 namespace mcmt {
 
 	McmtSingleDetectNode::McmtSingleDetectNode() : Node("McmtSingleDetectNode") {
 
-		node_handle_ = shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});	
+		node_handle_ = std::shared_ptr<::rclcpp::Node>(this, [](::rclcpp::Node *) {});	
 		declare_parameters();
 		get_parameters();
 		RCLCPP_INFO(this->get_logger(), "Initializing Mcmt Detector Node");
 
 		if (is_realtime_ == true) {
-			cap_ = VideoCapture(stoi(video_input_));
+			cap_ = cv::VideoCapture(std::stoi(video_input_));
 		} else {
-			cap_ = VideoCapture(video_input_);
+			cap_ = cv::VideoCapture(video_input_);
 		}
 
-		frame_w_ = int(cap_.get(CAP_PROP_FRAME_WIDTH));
-		frame_h_ = int(cap_.get(CAP_PROP_FRAME_HEIGHT));
+		frame_w_ = int(cap_.get(cv::CAP_PROP_FRAME_WIDTH));
+		frame_h_ = int(cap_.get(cv::CAP_PROP_FRAME_HEIGHT));
 		fps_ = VIDEO_FPS_;
 		scale_factor_ = (sqrt(pow(frame_w_, 2) + pow(frame_h_, 2))) / (sqrt(pow(848, 2) + pow(480, 2)));
 		aspect_ratio_ = frame_w_ / frame_h_;
@@ -72,30 +70,30 @@ namespace mcmt {
 		}
 
 		// initialize blob detector
-		SimpleBlobDetector::Params blob_params;
+		cv::SimpleBlobDetector::Params blob_params;
 		blob_params.filterByConvexity = false;
 		blob_params.filterByCircularity = false;
-		detector_ = SimpleBlobDetector::create(blob_params);
+		detector_ = cv::SimpleBlobDetector::create(blob_params);
 
 		// initialize background subtractor
 		int hist = int(FGBG_HISTORY_ * VIDEO_FPS_);
 		double varThresh = double(4 / scale_factor_);
 		bool detectShad = false;
-		fgbg_ = createBackgroundSubtractorMOG2(hist, varThresh, detectShad);
+		fgbg_ = cv::createBackgroundSubtractorMOG2(hist, varThresh, detectShad);
 		fgbg_->setBackgroundRatio(BACKGROUND_RATIO_);
 		fgbg_->setNMixtures(NMIXTURES_);
 
 		next_id_ = 1000;
 
 		// initialize kernel used for morphological transformations
-		element_ = getStructuringElement(0, Size(5, 5));
+		element_ = cv::getStructuringElement(0, cv::Size(5, 5));
 
 		if (!cap_.isOpened()) {
-		cout << "Error: Cannot open camera! Please check!" << endl;
+		std::cout << "Error: Cannot open camera! Please check!" << std::endl;
 		} else {
-			cout << "Camera opened successful!" << endl;
+			std::cout << "Camera opened successful!" << std::endl;
 		}
-		cap_.set(CAP_PROP_FPS, 30);
+		cap_.set(cv::CAP_PROP_FPS, 30);
 
 		// create detection info publisher with topic name "mcmt/detection_info"
 		topic_name_ = "mcmt/detection_info";
@@ -111,15 +109,15 @@ namespace mcmt {
 
 		frame_id_ = 1;
 		while (true) {
-			auto start = chrono::system_clock::now();
+			auto start = std::chrono::system_clock::now();
 			
 			// get camera frame
 			cap_ >> frame_;
 			
 			// check if getting frame was successful
 			if (frame_.empty()) {
-				cout << "Error: Video camera is disconnected!" << endl;
-				raise(SIGINT);
+				std::cout << "Error: Video camera is disconnected!" << std::endl;
+				std::raise(SIGINT);
 				break;
 			}
 
@@ -132,7 +130,7 @@ namespace mcmt {
 			
 			// get detections
 			detect_objects();
-			// imshow("Remove Ground", removebg_);
+			// cv::imshow("Remove Ground", removebg_);
 			
 			// apply state estimation filters
 			predict_new_locations_of_tracks();
@@ -160,15 +158,15 @@ namespace mcmt {
 			create_new_tracks();
 
 			// convert masked to BGR
-			cvtColor(masked_, masked_, COLOR_GRAY2BGR);
+			cv::cvtColor(masked_, masked_, cv::COLOR_GRAY2BGR);
 
 			// filter the tracks
 			good_tracks_ = filter_tracks();
 
 			// show masked and frame
-			// imshow("Frame", frame_);
-			// imshow("Masked", masked_);
-			waitKey(1);
+			// cv::imshow("Frame", frame_);
+			// cv::imshow("Masked", masked_);
+			cv::waitKey(1);
 
 			// publish detection and tracking information
 			publish_info();
@@ -177,10 +175,10 @@ namespace mcmt {
 			rclcpp::spin_some(node_handle_);
 
 			frame_id_++;
-			auto end = chrono::system_clock::now();
-			chrono::duration<double> elapsed_seconds = end-start;
-			cout << "Total number of tracks: " << tracks_.size() << endl;
-			cout << "Detection took: " << elapsed_seconds.count() << "s\n";
+			auto end = std::chrono::system_clock::now();
+			std::chrono::duration<double> elapsed_seconds = end-start;
+			std::cout << "Total number of tracks: " << tracks_.size() << std::endl;
+			std::cout << "Detection took: " << elapsed_seconds.count() << "s\n";
 
 		}
 	}
@@ -189,7 +187,7 @@ namespace mcmt {
 	 *  This function to stops the video capture
 	 */
 	void McmtSingleDetectNode::stop_record() {
-		cout << "Stop capturing camera completed!" << endl;
+		std::cout << "Stop capturing camera completed!" << std::endl;
 		cap_.release();
 	}
 
@@ -197,10 +195,10 @@ namespace mcmt {
 	 * This function applies background subtraction to the raw image frames to obtain 
 	 * thresholded mask image.
 	 */
-	Mat McmtSingleDetectNode::apply_bg_subtractions() {
-		Mat masked, converted_mask;
-		convertScaleAbs(frame_, masked);
-		convertScaleAbs(masked, masked, 1, (256 - average_brightness() + BRIGHTNESS_GAIN_));
+	cv::Mat McmtSingleDetectNode::apply_bg_subtractions() {
+		cv::Mat masked, converted_mask;
+		cv::convertScaleAbs(frame_, masked);
+		cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness() + BRIGHTNESS_GAIN_));
 		
 		// subtract background
 		fgbg_->apply(masked, masked, FGBG_LEARNING_RATE_);
@@ -212,13 +210,13 @@ namespace mcmt {
 		removebg_ = remove_ground();
 
 		// apply morphological transformation
-		dilate(masked_, masked_, element_, Point(), DILATION_ITER_);
+		cv::dilate(masked_, masked_, element_, cv::Point(), DILATION_ITER_);
 
 		// invert frame such that black pixels are foreground
-		bitwise_not(masked_, masked_);
+		cv::bitwise_not(masked_, masked_);
 
 		// apply blob detection
-		vector<KeyPoint> keypoints;
+		std::vector<cv::KeyPoint> keypoints;
 		detector_->detect(masked_, keypoints);
 
 		// clear vectors to store sizes and centroids of current frame's detected targets
@@ -232,29 +230,29 @@ namespace mcmt {
 	 * This function uses the background subtractor to subtract the history from the current frame.
 	 * It is implemented inside the "detect_object()" function pipeline.
 	 */
-	Mat McmtSingleDetectNode::remove_ground() {
+	cv::Mat McmtSingleDetectNode::remove_ground() {
 		// declare variables
-		vector<vector<Point>> contours;
-		vector<vector<Point>> background_contours;
+		std::vector<std::vector<cv::Point>> contours;
+		std::vector<std::vector<cv::Point>> background_contours;
 
 		// number of iterations determines how close objects need to be to be considered background
-		Mat dilated;
-		dilate(masked_, dilated, element_, Point(), int(REMOVE_GROUND_ITER_ * scale_factor_));
-		findContours(dilated, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+		cv::Mat dilated;
+		cv::dilate(masked_, dilated, element_, cv::Point(), int(REMOVE_GROUND_ITER_ * scale_factor_));
+		cv::findContours(dilated, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
 		for (auto & it : contours) {
-			float circularity = 4 * M_PI * contourArea(it) / (pow(arcLength(it, true), 2));
+			float circularity = 4 * M_PI * cv::contourArea(it) / (pow(cv::arcLength(it, true), 2));
 			if (circularity <= BACKGROUND_CONTOUR_CIRCULARITY_) {
 				background_contours.push_back(it);
 			}
 		}
 		
 		// show removed background on raw image frames
-		Mat bg_removed = frame_.clone();
-		drawContours(bg_removed, background_contours, -1, Scalar(0, 255, 0), 3);
+		cv::Mat bg_removed = frame_.clone();
+		cv::drawContours(bg_removed, background_contours, -1, cv::Scalar(0, 255, 0), 3);
 
 		// draw contours on masked frame to remove background
-		drawContours(masked_, background_contours, -1, Scalar(0, 0, 0), -1);
+		cv::drawContours(masked_, background_contours, -1, cv::Scalar(0, 0, 0), -1);
 		return bg_removed;
 	}
 
@@ -302,10 +300,10 @@ namespace mcmt {
 		int total_size = num_of_tracks + num_of_centroids;
 
 		// declare 2-D cost matrix and required variables
-		vector<vector<double>> cost(total_size, vector<double>(total_size, 0.0));
+		std::vector<std::vector<double>> cost(total_size, std::vector<double>(total_size, 0.0));
 		int row_index = 0;
 		int col_index = 0;
-		vector<int> assignments_all;
+		std::vector<int> assignments_all;
 
 		// get euclidean distance of every detected centroid with each track's predicted location
 		for (auto & track : tracks_) {
@@ -325,7 +323,7 @@ namespace mcmt {
 
 		// padding for cost matrix to account for unassigned detections, used to fill the bottom
 		// left corner of the cost matrix
-		vector<double> append_row;
+		std::vector<double> append_row;
 		for (int i = num_of_tracks; i < total_size; i++) {
 			for (int j = 0; j < num_of_centroids; j++) {
 				cost[i][j] = cost_of_non_assignment;
@@ -350,7 +348,7 @@ namespace mcmt {
 						// assignments are successfully matched detections and tracks. For this, the assigned 
 						// detection index must be less than number of centroids. if so, we will store the 
 						// track indexes and detection indexes in the assignments vector
-						vector<int> indexes(2, 0);
+						std::vector<int> indexes(2, 0);
 						indexes[0] = track_index;
 						indexes[1] = assignment;
 						assignments_kf_.push_back(indexes);
@@ -391,15 +389,15 @@ namespace mcmt {
 		int total_size = num_of_tracks + num_of_centroids;
 
 		// declare 2-D cost matrix and required variables
-		vector<vector<double>> cost(total_size, vector<double>(total_size, 0.0));
+		std::vector<std::vector<double>> cost(total_size, std::vector<double>(total_size, 0.0));
 		int row_index = 0;
 		int col_index = 0;
-		vector<int> assignments_all;
+		std::vector<int> assignments_all;
 
 		// get euclidean distance of every detected centroid with each track's predicted location
 		for (auto & track : tracks_) {
 			for (auto & centroid : centroids_) {
-				Point2f point;
+				cv::Point2f point;
 				point.x = track->box_.x + (0.5 * track->box_.width);
 				point.y = track->box_.y + (0.5 * track->box_.height);
 				cost[row_index][col_index] = euclideanDist(point, centroid);
@@ -417,7 +415,7 @@ namespace mcmt {
 
 		// padding for cost matrix to account for unassigned detections, used to fill the bottom
 		// left corner of the cost matrix
-		vector<double> append_row;
+		std::vector<double> append_row;
 		for (int i = num_of_tracks; i < total_size; i++) {
 			for (int j = 0; j < num_of_centroids; j++) {
 				cost[i][j] = cost_of_non_assignment;
@@ -442,7 +440,7 @@ namespace mcmt {
 						// assignments are successfully matched detections and tracks. For this, the assigned 
 						// detection index must be less than number of centroids. if so, we will store the 
 						// track indexes and detection indexes in the assignments vector
-						vector<int> indexes(2, 0);
+						std::vector<int> indexes(2, 0);
 						indexes[0] = track_index;
 						indexes[1] = assignment;
 						assignments_dcf_.push_back(indexes);
@@ -479,11 +477,10 @@ namespace mcmt {
 				unassigned_tracks_ = unassigned_tracks_kf_;
 				unassigned_detections_ = unassigned_detections_kf_;
 			return;
-
 		// check to see if assignments by kf and dcf are equal
 		} else if (assignments_kf_.size() == assignments_dcf_.size()) {
 			// get bool if the kf and dcf assignments are equal
-			bool is_equal = equal(
+			bool is_equal = std::equal(
 				assignments_kf_.begin(), assignments_kf_.end(), assignments_dcf_.begin());
 			
 			if (is_equal == true) {
@@ -510,8 +507,8 @@ namespace mcmt {
 			bool different_flag;
 			bool different_assignment_flag;
 			bool already_assigned_flag;
-			vector<int> assigned_tracks;
-			vector<int> assigned_detections;
+			std::vector<int> assigned_tracks;
+			std::vector<int> assigned_detections;
 
 			// iterate through every dcf assignment
 			for (auto & dcf_assignment : assignments_dcf_) {
@@ -525,7 +522,6 @@ namespace mcmt {
 					if (dcf_assignment == kf_assignment) {
 						different_flag = false;
 						break;
-
 					// check if dcf assignment track index equal to the kf assignment track index
 					// if it is, then the kf and dcf assigned the same track to a different detection
 					// condition: different_flag = true, different_assignment_flag = true
@@ -543,7 +539,6 @@ namespace mcmt {
 					assignments_.push_back(dcf_assignment);
 					assigned_tracks.push_back(dcf_assignment[0]);
 					assigned_detections.push_back(dcf_assignment[1]);
-
 				// kf and dcf did not assign the same detection to track
 				// condition: different_flag = true
 				} else {
@@ -554,7 +549,6 @@ namespace mcmt {
 						assignments_.push_back(dcf_assignment);
 						assigned_tracks.push_back(dcf_assignment[0]);
 						assigned_detections.push_back(dcf_assignment[1]);
-
 					// dcf assigned the track to a detection, but the kf did not. 
 					// condition: different_flag = false, different_assignment_flag = false
 					// for this case, we will assign the track to the detection that the dcf assigned it to.
@@ -595,20 +589,20 @@ namespace mcmt {
 				if (already_assigned_flag == false || different_assignment_flag == false) {
 					// check first to see if the detection is already part of an assignment
 					// if so, do not add it as it potentially results in multiple tracks assigned to a single detection
-					if (find(assigned_detections.begin(), assigned_detections.end(), kf_assignment[1]) != assigned_detections.end()) {
+					if (std::find(assigned_detections.begin(), assigned_detections.end(), kf_assignment[1]) != assigned_detections.end()) {
 						// existing assignment to this detection exists. since this is likely a crossover event, we prioritise KF
 						// look for confliction DCF assignment
 						for (auto & dcf_assignment : assignments_dcf_) {
 							if (kf_assignment[1] == dcf_assignment[1]) {
 								// once conflicting DCF assignment found, delete it from assignments
-								assignments_.erase(remove(assignments_.begin(), assignments_.end(), dcf_assignment), assignments_.end());
-								assigned_tracks.erase(remove(assigned_tracks.begin(), assigned_tracks.end(), dcf_assignment[0]), assigned_tracks.end());
-								assigned_detections.erase(remove(assigned_detections.begin(), assigned_detections.end(), dcf_assignment[1]), assigned_detections.end());
+								assignments_.erase(std::remove(assignments_.begin(), assignments_.end(), dcf_assignment), assignments_.end());
+								assigned_tracks.erase(std::remove(assigned_tracks.begin(), assigned_tracks.end(), dcf_assignment[0]), assigned_tracks.end());
+								assigned_detections.erase(std::remove(assigned_detections.begin(), assigned_detections.end(), dcf_assignment[1]), assigned_detections.end());
 								// attempt to assign conflicting track with prior KF assignment, if it exists
 								// otherwise, don't bother
 								for (auto & prior_kf_assignment : assignments_kf_) {
 									// check to ensure that the new assignment detection is unassigned
-									if (prior_kf_assignment[0] == dcf_assignment[0] && find(assigned_detections.begin(), assigned_detections.end(), prior_kf_assignment[1]) != assigned_detections.end()) {
+									if (prior_kf_assignment[0] == dcf_assignment[0] && std::find(assigned_detections.begin(), assigned_detections.end(), prior_kf_assignment[1]) != assigned_detections.end()) {
 										assignments_.push_back(prior_kf_assignment);
 										assigned_tracks.push_back(prior_kf_assignment[0]);
 										assigned_detections.push_back(prior_kf_assignment[1]);
@@ -630,7 +624,7 @@ namespace mcmt {
 
 			// get unassigned tracks
 			for (auto & unassigned_track : unassigned_tracks_dcf_) {
-				if (find(assigned_tracks.begin(), assigned_tracks.end(), unassigned_track) != assigned_tracks.end()) {
+				if (std::find(assigned_tracks.begin(), assigned_tracks.end(), unassigned_track) != assigned_tracks.end()) {
 					continue;
 				}
 				unassigned_tracks_.push_back(unassigned_track);
@@ -638,7 +632,7 @@ namespace mcmt {
 
 			// get unassigned detections
 			for (auto & unassigned_detection : unassigned_detections_dcf_) {
-				if (find(assigned_detections.begin(), assigned_detections.end(), unassigned_detection) != assigned_detections.end()) {
+				if (std::find(assigned_detections.begin(), assigned_detections.end(), unassigned_detection) != assigned_detections.end()) {
 					continue;
 				}
 				unassigned_detections_.push_back(unassigned_detection);
@@ -655,9 +649,9 @@ namespace mcmt {
 			int track_index = assignment[0];
 			int detection_index = assignment[1];
 
-			Point2f cen = centroids_[detection_index];
+			cv::Point2f cen = centroids_[detection_index];
 			float size = sizes_[detection_index];
-			shared_ptr<Track> track = tracks_[track_index];
+			std::shared_ptr<Track> track = tracks_[track_index];
 
 			// update kalman filter
 			track->updateKF(cen);
@@ -685,7 +679,7 @@ namespace mcmt {
 		int age_threshold = int(AGE_THRESH_ * VIDEO_FPS_);
 
 		for (auto & track_index : unassigned_tracks_) {
-			shared_ptr<Track> track = tracks_[track_index];
+			std::shared_ptr<Track> track = tracks_[track_index];
 			track->age_++;
 			track->consecutiveInvisibleCount_++;
 			
@@ -706,10 +700,10 @@ namespace mcmt {
 	 */
 	void McmtSingleDetectNode::create_new_tracks() {
 		for (auto & unassigned_detection : unassigned_detections_) {
-			Point2f cen = centroids_[unassigned_detection];
+			cv::Point2f cen = centroids_[unassigned_detection];
 			float size = sizes_[unassigned_detection];
 			// initialize new track
-			auto new_track = shared_ptr<Track>(
+			auto new_track = std::shared_ptr<Track>(
 				new Track(next_id_, size, cen, VIDEO_FPS_, SEC_FILTER_DELAY_));
 			tracks_.push_back(new_track);
 			next_id_++;
@@ -733,10 +727,10 @@ namespace mcmt {
 	 * frames. it draws bounding boxes into these tracks into our camera frame to continuously 
 	 * identify and track the detected good tracks
 	 */
-	vector<shared_ptr<Track>> McmtSingleDetectNode::filter_tracks() {
-		vector<shared_ptr<Track>> good_tracks;
-		int min_track_age = int(max((AGE_THRESH_ * VIDEO_FPS_), float(30.0)));
-		int min_visible_count = int(max((VISIBILITY_THRESH_ * VIDEO_FPS_), float(30.0)));
+	std::vector<std::shared_ptr<Track>> McmtSingleDetectNode::filter_tracks() {
+		std::vector<std::shared_ptr<Track>> good_tracks;
+		int min_track_age = int(std::max((AGE_THRESH_ * VIDEO_FPS_), float(30.0)));
+		int min_visible_count = int(std::max((VISIBILITY_THRESH_ * VIDEO_FPS_), float(30.0)));
 
 		if (tracks_.size() != 0) {
 			for (auto & track : tracks_) {
@@ -747,20 +741,20 @@ namespace mcmt {
 						track->is_goodtrack_ = true;
 						good_tracks.push_back(track);
 					}
-					Point2i rect_top_left((track->centroid_.x - (track->size_ / 2)), 
+					cv::Point2i rect_top_left((track->centroid_.x - (track->size_ / 2)), 
 																		(track->centroid_.y - (track->size_ / 2)));
 					
-					Point2i rect_bottom_right((track->centroid_.x + (track->size_ / 2)), 
+					cv::Point2i rect_bottom_right((track->centroid_.x + (track->size_ / 2)), 
 																				(track->centroid_.y + (track->size_ / 2)));
 					
 					if (track->consecutiveInvisibleCount_ == 0) {
 						// green color bounding box if track is detected in the current frame
-						rectangle(frame_, rect_top_left, rect_bottom_right, Scalar(0, 255, 0), 1);
-						rectangle(masked_, rect_top_left, rect_bottom_right, Scalar(0, 255, 0), 1);
+						cv::rectangle(frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);
+						cv::rectangle(masked_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);
 					} else {
 						// red color bounding box if track is not detected in the current frame
-						rectangle(frame_, rect_top_left, rect_bottom_right, Scalar(0, 0, 255), 1);
-						rectangle(masked_, rect_top_left, rect_bottom_right, Scalar(0, 0, 255), 1);
+						cv::rectangle(frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 0, 255), 1);
+						cv::rectangle(masked_, rect_top_left, rect_bottom_right, cv::Scalar(0, 0, 255), 1);
 					}
 				}
 			}
@@ -771,8 +765,8 @@ namespace mcmt {
 	/**
 	 * This function calculates the euclidean distance between two points
 	 */
-	double McmtSingleDetectNode::euclideanDist(Point2f & p, Point2f & q) {
-		Point2f diff = p - q;
+	double McmtSingleDetectNode::euclideanDist(cv::Point2f & p, cv::Point2f & q) {
+		cv::Point2f diff = p - q;
 		return sqrt(diff.x*diff.x + diff.y*diff.y);
 	}
 
@@ -780,8 +774,8 @@ namespace mcmt {
 	 * This function applies hungarian algorithm to obtain the optimal assignment for 
 	 * our cost matrix of tracks and detections
 	 */
-	vector<int> McmtSingleDetectNode::apply_hungarian_algo(
-		vector<vector<double>> & cost_matrix) {
+	std::vector<int> McmtSingleDetectNode::apply_hungarian_algo(
+		std::vector<std::vector<double>> & cost_matrix) {
 		// declare function variables
 		HungarianAlgorithm hungAlgo;
 		vector<int> assignment;
@@ -796,16 +790,16 @@ namespace mcmt {
 	int McmtSingleDetectNode::average_brightness() {
 
 		// declare and initialize required variables
-		Mat hist;
+		cv::Mat hist;
 		int bins = 16;
 		float hrange[] = {0, 256};
 		const float* range = {hrange};
 		float weighted_sum = 0;
 
 		// get grayscale frame and calculate histogram
-		cvtColor(frame_, gray_, COLOR_BGR2GRAY);
-		calcHist(&gray_, 1, 0, Mat(), hist, 1, &bins, &range, true, false);
-		Scalar total_sum = sum(hist);
+		cv::cvtColor(frame_, gray_, cv::COLOR_BGR2GRAY);
+		cv::calcHist(&gray_, 1, 0, cv::Mat(), hist, 1, &bins, &range, true, false);
+		cv::Scalar total_sum = cv::sum(hist);
 
 		// iterate through each bin
 		for (int i=0; i < 16; i++) {
@@ -916,11 +910,11 @@ namespace mcmt {
 
 		rclcpp::Time timestamp = this->now();
 		std_msgs::msg::Header header;
-		string encoding;
-		string frame_id_str;
+		std::string encoding;
+		std::string frame_id_str;
 
 		header.stamp = timestamp;
-		frame_id_str = to_string(frame_id_);
+		frame_id_str = std::to_string(frame_id_);
 		header.frame_id = frame_id_str;
 
 		mcmt_msg::msg::SingleDetectionInfo dect_info;
@@ -930,10 +924,10 @@ namespace mcmt {
 		sensor_msgs::msg::Image::SharedPtr detect_img_msg = cv_bridge::CvImage(
 			header, encoding, frame_).toImageMsg();
 
-		vector<int16_t> goodtrack_id_list;
-		vector<int16_t> goodtrack_x_list;
-		vector<int16_t> goodtrack_y_list;
-		vector<int16_t> deadtrack_id_list;
+		std::vector<int16_t> goodtrack_id_list;
+		std::vector<int16_t> goodtrack_x_list;
+		std::vector<int16_t> goodtrack_y_list;
+		std::vector<int16_t> deadtrack_id_list;
 
 		// get good track's information
 		for (auto & track : good_tracks_) {
@@ -959,7 +953,7 @@ namespace mcmt {
 		detection_pub_->publish(dect_info);
 	}
 
-	string McmtSingleDetectNode::mat_type2encoding(int mat_type) {
+	std::string McmtSingleDetectNode::mat_type2encoding(int mat_type) {
 		switch (mat_type) {
 			case CV_8UC1:
 				return "mono8";
@@ -970,11 +964,11 @@ namespace mcmt {
 			case CV_8UC4:
 				return "rgba8";
 			default:
-				throw runtime_error("Unsupported encoding type");
+				throw std::runtime_error("Unsupported encoding type");
 		}
 	}
 
-	int McmtSingleDetectNode::encoding2mat_type(const string & encoding) {
+	int McmtSingleDetectNode::encoding2mat_type(const std::string & encoding) {
 		if (encoding == "mono8") {
 			return CV_8UC1;
 		} else if (encoding == "bgr8") {
@@ -990,8 +984,7 @@ namespace mcmt {
 		} else if (encoding == "rgb8") {
 			return CV_8UC3;
 		} else {
-			throw runtime_error("Unsupported encoding type");
+			throw std::runtime_error("Unsupported encoding type");
 		}
 	}
-
 }

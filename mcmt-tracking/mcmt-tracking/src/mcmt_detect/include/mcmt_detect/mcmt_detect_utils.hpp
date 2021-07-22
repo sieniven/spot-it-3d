@@ -40,9 +40,6 @@
 #include <list>
 #include <array>
 
-using namespace std;
-using namespace cv;
-
 namespace mcmt {
 
 	class Track {
@@ -50,7 +47,7 @@ namespace mcmt {
 			Track(
 				int track_id, 
 				float size,
-				Point2f centroid,
+				cv::Point2f centroid,
 				int video_fps,
 				float sec_filter_delay);
 			
@@ -61,7 +58,7 @@ namespace mcmt {
 			float sec_filter_delay_;
 
 			// variable to store predicted and actual locations from kf
-			Point2f centroid_, predicted_;
+			cv::Point2f centroid_, predicted_;
 
 			// declare DCF bool variable
 			bool is_dcf_init_, outOfSync_;
@@ -75,16 +72,16 @@ namespace mcmt {
 
 			// declare class functions
 			void predictKF();
-			void updateKF(Point2f & measurement);
-			void predictDCF(Mat & frame);
-			void checkDCF(Point2f & measurement, Mat & frame);
+			void updateKF(cv::Point2f & measurement);
+			void predictDCF(cv::Mat & frame);
+			void checkDCF(cv::Point2f & measurement, cv::Mat & frame);
 
 			// declare kf variables
-			shared_ptr<KalmanFilter> kf_;
+			std::shared_ptr<cv::KalmanFilter> kf_;
 
 			// declare dcf variables
-			Ptr<Tracker> tracker_;
-			Rect box_;
+			cv::Ptr<cv::Tracker> tracker_;
+			cv::Rect box_;
 	};
 
 	class Camera {
@@ -92,7 +89,7 @@ namespace mcmt {
 			Camera(
 				int cam_index,
 				bool is_realtime,
-				string video_input,
+				std::string video_input,
 				int fps,
 				int max_frame_width,
 				int max_frame_height,
@@ -104,35 +101,35 @@ namespace mcmt {
 		virtual ~Camera() {}
 
 			// declare video parameters
-			VideoCapture cap_;
-			Mat frame_, masked_, gray_, mask_, removebg_;
-			string video_input_;
+			cv::VideoCapture cap_;
+			cv::Mat frame_, masked_, gray_, mask_, removebg_;
+			std::string video_input_;
 			int cam_index_, frame_w_, frame_h_, fps_, next_id_;
 			float scale_factor_, aspect_ratio_;
 			bool downsample_;
 
 			// declare tracking variables
-			vector<shared_ptr<Track>> tracks_, good_tracks_;
-			vector<int> dead_tracks_;
+			std::vector<std::shared_ptr<mcmt::Track>> tracks_, good_tracks_;
+			std::vector<int> dead_tracks_;
 
 			// declare detection variables
-			vector<float> sizes_;
-			vector<Point2f> centroids_;
+			std::vector<float> sizes_;
+			std::vector<cv::Point2f> centroids_;
 
 			// declare tracking variables
-			vector<int> unassigned_tracks_, unassigned_detections_;
-			vector<int> unassigned_tracks_kf_, unassigned_detections_kf_;
-			vector<int> unassigned_tracks_dcf_, unassigned_detections_dcf_;
+			std::vector<int> unassigned_tracks_, unassigned_detections_;
+			std::vector<int> unassigned_tracks_kf_, unassigned_detections_kf_;
+			std::vector<int> unassigned_tracks_dcf_, unassigned_detections_dcf_;
 			
 			// we store the matched track index and detection index in the assigments vector
-			vector<vector<int>> assignments_;
-			vector<vector<int>> assignments_kf_;
-			vector<vector<int>> assignments_dcf_;
-			vector<int> tracks_to_be_removed_;
+			std::vector<std::vector<int>> assignments_;
+			std::vector<std::vector<int>> assignments_kf_;
+			std::vector<std::vector<int>> assignments_dcf_;
+			std::vector<int> tracks_to_be_removed_;
 
 			// declare blob detector and background subtractor
-			Ptr<SimpleBlobDetector> detector_;
-			Ptr<BackgroundSubtractorMOG2> fgbg_;
+			cv::Ptr<cv::SimpleBlobDetector> detector_;
+			cv::Ptr<cv::BackgroundSubtractorMOG2> fgbg_;
 	};
 }
 

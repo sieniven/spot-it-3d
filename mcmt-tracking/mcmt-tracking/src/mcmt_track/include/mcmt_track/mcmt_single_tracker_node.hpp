@@ -59,20 +59,20 @@ namespace mcmt {
 			// declare node parameters
 			rclcpp::Node::SharedPtr node_handle_;
 			rclcpp::Subscription<mcmt_msg::msg::MultiDetectionInfo>::SharedPtr detection_sub_;
-			string topic_name_;
+			std::string topic_name_;
 
 			// declare camera parameters
-			VideoCapture cap_;
+			cv::VideoCapture cap_;
 			int frame_w_, frame_h_, fps_;
 			double scale_factor_, aspect_ratio_;
 			bool downsample_;
 
 			// declare video parameters
-			string video_input_1_, video_input_2_;
-			string output_vid_path_, output_csv_path_1_, output_csv_path_2_;
+			std::string video_input_1_, video_input_2_;
+			std::string output_vid_path_, output_csv_path_1_, output_csv_path_2_;
 			bool is_realtime_;
 			int FRAME_WIDTH_, FRAME_HEIGHT_;
-			VideoWriter recording_;
+			cv::VideoWriter recording_;
 
 			// declare ROS2 parameters
 			rclcpp::Parameter IS_REALTIME_param, VIDEO_INPUT_1_param, VIDEO_INPUT_2_param, FRAME_WIDTH_param, 
@@ -89,65 +89,69 @@ namespace mcmt {
 
 			// declare tracking variables
 			int frame_count_, next_id_;
-			vector<int> origin_;
-			array<shared_ptr<CameraTracks>, 2> cumulative_tracks_;
-			array<int, 2> total_tracks_;
-			array<map<int, int>, 2> matching_dict_;
+			std::vector<int> origin_;
+			std::array<std::shared_ptr<CameraTracks>, 2> cumulative_tracks_;
+			std::array<int, 2> total_tracks_;
+			std::array<std::map<int, int>, 2> matching_dict_;
 
 			// declare plotting parameters
 			int plot_history_;
-			vector<vector<int>> colors_;
+			std::vector<std::vector<int>> colors_;
 			double font_scale_;
-			vector<int> shown_indexes_;
+			std::vector<int> shown_indexes_;
 
 			// declare colors
-			vector<Scalar> colors = {
-				Scalar(124, 104, 66), // 1
-				Scalar(20, 60, 96), // 2
-				Scalar(46, 188, 243), // 3
-				Scalar(143, 89, 255), // 4
-				Scalar(6, 39, 156), // 5
-				Scalar(92, 215, 206), // 6
-				Scalar(105, 139, 246), // 7
-				Scalar(84, 43, 0), // 8
-				Scalar(137, 171, 197), // 9
-				Scalar(147, 226, 255) // 10
+			std::vector<cv::Scalar> colors = {
+				cv::Scalar(124, 104, 66), // 1
+				cv::Scalar(20, 60, 96), // 2
+				cv::Scalar(46, 188, 243), // 3
+				cv::Scalar(143, 89, 255), // 4
+				cv::Scalar(6, 39, 156), // 5
+				cv::Scalar(92, 215, 206), // 6
+				cv::Scalar(105, 139, 246), // 7
+				cv::Scalar(84, 43, 0), // 8
+				cv::Scalar(137, 171, 197), // 9
+				cv::Scalar(147, 226, 255) // 10
 			};
+
+			// debugging
+			std::vector<std::vector<double>> lines;
+			std::vector<std::string> debug_messages;
 			
 			// tracker node methods
 			void process_msg_info(mcmt_msg::msg::MultiDetectionInfo::SharedPtr msg,
-					array<shared_ptr<Mat>, 2> & frames,
-					array<vector<shared_ptr<GoodTrack>>, 2> & good_tracks,
-					array<vector<int>, 2> & dead_tracks);
+					std::array<std::shared_ptr<cv::Mat>, 2> & frames,
+					std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks,
+					std::array<std::vector<int>, 2> & dead_tracks);
 
 			void declare_parameters();
 			void get_parameters();
 			
 			void process_detection_callback();
-			void update_cumulative_tracks(int index, array<vector<shared_ptr<GoodTrack>>, 2> & good_tracks);
+			void update_cumulative_tracks(int index, std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks);
 			void prune_tracks(int index);
 			void verify_existing_tracks();
 			void process_new_tracks(int index, int alt,
-				array<vector<shared_ptr<GoodTrack>>, 2> & good_tracks,
-				array<vector<shared_ptr<GoodTrack>>, 2> & filter_good_tracks,
-				array<vector<int>, 2> & dead_tracks);
+				std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks,
+				std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & filter_good_tracks,
+				std::array<std::vector<int>, 2> & dead_tracks);
 			void get_total_number_of_tracks();
-			vector<double> normalise_track_plot(shared_ptr<TrackPlot> track_plot);
-			double crossCorrelation(vector<double> X, vector<double> Y);
-			double compute_matching_score(shared_ptr<TrackPlot> track_plot,
-				shared_ptr<TrackPlot> alt_track_plot, int index, int alt);
-			double geometric_similarity(vector<shared_ptr<TrackPlot::OtherTrack>> & other_tracks_0,
-				vector<shared_ptr<TrackPlot::OtherTrack>> & other_tracks_1);
-			double heading_error(shared_ptr<TrackPlot> track_plot, 
-				shared_ptr<TrackPlot> alt_track_plot, int history);
+			std::vector<double> normalise_track_plot(std::shared_ptr<TrackPlot> track_plot);
+			double crossCorrelation(std::vector<double> X, std::vector<double> Y);
+			double compute_matching_score(std::shared_ptr<TrackPlot> track_plot,
+				std::shared_ptr<TrackPlot> alt_track_plot, int index, int alt);
+			double geometric_similarity(std::vector<std::shared_ptr<TrackPlot::OtherTrack>> & other_tracks_0,
+				std::vector<std::shared_ptr<TrackPlot::OtherTrack>> & other_tracks_1);
+			double heading_error(std::shared_ptr<TrackPlot> track_plot, 
+				std::shared_ptr<TrackPlot> alt_track_plot, int history);
 			void calculate_3D();
 			void print_frame_summary();
-			void annotate_frames(array<shared_ptr<Mat>, 2> frames_, array<shared_ptr<CameraTracks>, 2> cumulative_tracks_);
-			void graphical_UI(Mat combined_frame, array<shared_ptr<CameraTracks>, 2> cumulative_tracks_);
-			void imshow_resized_dual(string & window_name, Mat & img);
-			int encoding2mat_type(const string & encoding);
+			void annotate_frames(std::array<std::shared_ptr<cv::Mat>, 2> frames_, std::array<std::shared_ptr<CameraTracks>, 2> cumulative_tracks_);
+			void graphical_UI(cv::Mat combined_frame, std::array<std::shared_ptr<CameraTracks>, 2> cumulative_tracks_);
+			void imshow_resized_dual(std::string & window_name, cv::Mat & img);
+			int encoding2mat_type(const std::string & encoding);
 
-			ofstream trackplot_file;
+			std::ofstream trackplot_file;
 		
 	};
 }

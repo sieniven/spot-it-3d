@@ -35,7 +35,6 @@
 #include <algorithm>
 #include <functional>
 
-using namespace std;
 using namespace mcmt;
 
 namespace mcmt {
@@ -62,7 +61,7 @@ namespace mcmt {
 	/**
 	 * This function updates the track with the latest track information
 	 */
-	void TrackPlot::update(vector<int> & location, int & size, int & frame_no) {
+	void TrackPlot::update(std::vector<int> & location, int & size, int & frame_no) {
 		xs_.push_back(location[0]);
 		ys_.push_back(location[1]);
 		frameNos_.push_back(frame_no);
@@ -84,8 +83,8 @@ namespace mcmt {
 					(frameNos_.end()[-3] == (frameNos_.end()[-2] - 1))) {
 				// retrieve the x and y values of the last 3 points
 				int t = 2;
-				vector<int> x(xs_.end() - 3, xs_.end());
-				vector<int> y(ys_.end() - 3, ys_.end());
+				std::vector<int> x(xs_.end() - 3, xs_.end());
+				std::vector<int> y(ys_.end() - 3, ys_.end());
 
 				// Turning angle and curvature
 				
@@ -137,14 +136,14 @@ namespace mcmt {
 	/**
 	 * this function updates the current frame's other_tracks list
 	 */
-	void update_other_tracks(shared_ptr<TrackPlot> trackplot,
-		shared_ptr<CameraTracks> & cumulative_track) {
+	void update_other_tracks(std::shared_ptr<TrackPlot> trackplot,
+		std::shared_ptr<CameraTracks> & cumulative_track) {
 		
 		// clear other_tracks vector
 		trackplot->other_tracks_.clear();
 
 		// iterate through the camera's tracks
-		map<int, shared_ptr<mcmt::TrackPlot>>::iterator other_track;
+		std::map<int, std::shared_ptr<mcmt::TrackPlot>>::iterator other_track;
 		for (other_track = cumulative_track->track_plots_.begin(); 
 			other_track != cumulative_track->track_plots_.end(); other_track++) {
 
@@ -153,7 +152,7 @@ namespace mcmt {
 				int dy = other_track->second->ys_.end()[-1] - trackplot->ys_.end()[-1];
 
 				if (dx != 0 && dy != 0) {
-					auto new_other_track = shared_ptr<TrackPlot::OtherTrack>(new TrackPlot::OtherTrack());
+					auto new_other_track = std::shared_ptr<TrackPlot::OtherTrack>(new TrackPlot::OtherTrack());
 					new_other_track->angle = atan2(dy, dx);
 					new_other_track->dist = hypot(dx, dy);
 					trackplot->other_tracks_.push_back(new_other_track);
@@ -168,7 +167,7 @@ namespace mcmt {
 				int dy = other_track->second->ys_.end()[-1] - trackplot->ys_.end()[-1];
 
 				if (dx != 0 && dy != 0) {
-					auto new_other_track = shared_ptr<TrackPlot::OtherTrack>(new TrackPlot::OtherTrack());
+					auto new_other_track = std::shared_ptr<TrackPlot::OtherTrack>(new TrackPlot::OtherTrack());
 					new_other_track->angle = atan2(dy, dx);
 					new_other_track->dist = hypot(dx, dy);
 					trackplot->other_tracks_.push_back(new_other_track);
@@ -179,8 +178,8 @@ namespace mcmt {
 
 	void combine_track_plots(
 		int & index,
-		shared_ptr<CameraTracks> camera_tracks,
-		shared_ptr<TrackPlot> track_plot,
+		std::shared_ptr<CameraTracks> camera_tracks,
+		std::shared_ptr<TrackPlot> track_plot,
 		int & frame_count) {
 		
 		// append the various variable value vectors

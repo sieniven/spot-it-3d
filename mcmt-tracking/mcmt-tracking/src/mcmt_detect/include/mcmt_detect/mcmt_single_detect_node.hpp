@@ -51,10 +51,6 @@
 #include <list>
 #include <array>
 
-using namespace std;
-using namespace cv;
-using namespace mcmt;
-
 namespace mcmt {
 
 	class McmtSingleDetectNode : public rclcpp::Node {
@@ -65,38 +61,38 @@ namespace mcmt {
 				
 			// declare node parameters
 			rclcpp::Node::SharedPtr node_handle_;
-			string topic_name_;
+			std::string topic_name_;
 
 			// declare video parameters
-			VideoCapture cap_;
-			Mat frame_, masked_, gray_, mask_, element_, removebg_;
-			string video_input_;
+			cv::VideoCapture cap_;
+			cv::Mat frame_, masked_, gray_, mask_, element_, removebg_;
+			std::string video_input_;
 			int frame_w_, frame_h_, fps_, frame_id_, next_id_;
 			float scale_factor_, aspect_ratio_;
 			bool is_realtime_, downsample_;
 
 			// declare tracking variables
-			vector<shared_ptr<Track>> tracks_, good_tracks_;
-			vector<int> dead_tracks_;
+			std::vector<std::shared_ptr<mcmt::Track>> tracks_, good_tracks_;
+			std::vector<int> dead_tracks_;
 
 			// declare detection variables
-			vector<float> sizes_;
-			vector<Point2f> centroids_;
+			std::vector<float> sizes_;
+			std::vector<cv::Point2f> centroids_;
 
 			// declare blob detector and background subtractor
-			Ptr<SimpleBlobDetector> detector_;
-			Ptr<BackgroundSubtractorMOG2> fgbg_;
+			cv::Ptr<cv::SimpleBlobDetector> detector_;
+			cv::Ptr<cv::BackgroundSubtractorMOG2> fgbg_;
 
 			// declare tracking variables
-			vector<int> unassigned_tracks_, unassigned_detections_;
-			vector<int> unassigned_tracks_kf_, unassigned_detections_kf_;
-			vector<int> unassigned_tracks_dcf_, unassigned_detections_dcf_;
+			std::vector<int> unassigned_tracks_, unassigned_detections_;
+			std::vector<int> unassigned_tracks_kf_, unassigned_detections_kf_;
+			std::vector<int> unassigned_tracks_dcf_, unassigned_detections_dcf_;
 			
 			// we store the matched track index and detection index in the assigments vector
-			vector<vector<int>> assignments_;
-			vector<vector<int>> assignments_kf_;
-			vector<vector<int>> assignments_dcf_;	
-			vector<int> tracks_to_be_removed_;
+			std::vector<std::vector<int>> assignments_;
+			std::vector<std::vector<int>> assignments_kf_;
+			std::vector<std::vector<int>> assignments_dcf_;	
+			std::vector<int> tracks_to_be_removed_;
 
 			// declare ROS2 video parameters
 			rclcpp::Parameter IS_REALTIME_param, VIDEO_INPUT_param, FRAME_WIDTH_param, FRAME_HEIGHT_param,
@@ -136,8 +132,8 @@ namespace mcmt {
 
 			// declare detection and tracking functions
 			void detect_objects();
-			Mat remove_ground();
-			Mat apply_bg_subtractions();
+			cv::Mat remove_ground();
+			cv::Mat apply_bg_subtractions();
 			void predict_new_locations_of_tracks();
 			void clear_track_variables();
 			void detection_to_track_assignment_KF();
@@ -147,14 +143,14 @@ namespace mcmt {
 			void update_unassigned_tracks();
 			void create_new_tracks();
 			void delete_lost_tracks();
-			vector<shared_ptr<Track>> filter_tracks();
+			std::vector<std::shared_ptr<mcmt::Track>> filter_tracks();
 
 			// declare utility functions
-			double euclideanDist(Point2f & p, Point2f & q);
-			vector<int> apply_hungarian_algo(vector<vector<double>> & cost_matrix);
+			double euclideanDist(cv::Point2f & p, cv::Point2f & q);
+			std::vector<int> apply_hungarian_algo(std::vector<std::vector<double>> & cost_matrix);
 			int average_brightness();
-			string mat_type2encoding(int mat_type);
-			int encoding2mat_type(const string & encoding);
+			std::string mat_type2encoding(int mat_type);
+			int encoding2mat_type(const std::string & encoding);
 	};
 }
 

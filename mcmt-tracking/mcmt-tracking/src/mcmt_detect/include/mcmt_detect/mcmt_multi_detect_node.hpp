@@ -51,10 +51,6 @@
 #include <list>
 #include <array>
 
-using namespace std;
-using namespace cv;
-using namespace mcmt;
-
 namespace mcmt {
 
 	class McmtMultiDetectNode : public rclcpp::Node {
@@ -65,14 +61,14 @@ namespace mcmt {
 				
 				// declare node parameters
 			rclcpp::Node::SharedPtr node_handle_;
-			string topic_name_;
+			std::string topic_name_;
 
 			// declare Camera variables
-			vector<shared_ptr<Camera>> cameras_;
+			std::vector<std::shared_ptr<mcmt::Camera>> cameras_;
 			bool is_realtime_;
 			int frame_id_;
-			string video_input_1_, video_input_2_;
-			Mat element_;
+			std::string video_input_1_, video_input_2_;
+			cv::Mat element_;
 
 			// declare ROS2 video parameters
 			rclcpp::Parameter IS_REALTIME_param, VIDEO_INPUT_1_param, VIDEO_INPUT_2_param, FRAME_WIDTH_param, 
@@ -111,27 +107,27 @@ namespace mcmt {
 
 			// declare detection and tracking functions
 			void initialize_cameras();
-			void sky_saturation(shared_ptr<Camera> & camera);
-			void detect_objects(shared_ptr<Camera> & camera);
-			Mat remove_ground(shared_ptr<Camera> & camera);
-			Mat apply_bg_subtractions(shared_ptr<Camera> & camera);
-			void predict_new_locations_of_tracks(shared_ptr<Camera> & camera);
-			void clear_track_variables(shared_ptr<Camera> & camera);
-			void detection_to_track_assignment_KF(shared_ptr<Camera> & camera);
-			void detection_to_track_assignment_DCF(shared_ptr<Camera> & camera);
-			void compare_cost_matrices(shared_ptr<Camera> & camera);
-			void update_assigned_tracks(shared_ptr<Camera> & camera);
-			void update_unassigned_tracks(shared_ptr<Camera> & camera);
-			void create_new_tracks(shared_ptr<Camera> & camera);
-			void delete_lost_tracks(shared_ptr<Camera> & camera);
-			vector<shared_ptr<Track>> filter_tracks(shared_ptr<Camera> & camera);
+			void sky_saturation(std::shared_ptr<mcmt::Camera> & camera);
+			void detect_objects(std::shared_ptr<mcmt::Camera> & camera);
+			cv::Mat remove_ground(std::shared_ptr<mcmt::Camera> & camera);
+			cv::Mat apply_bg_subtractions(std::shared_ptr<mcmt::Camera> & camera);
+			void predict_new_locations_of_tracks(std::shared_ptr<mcmt::Camera> & camera);
+			void clear_track_variables(std::shared_ptr<mcmt::Camera> & camera);
+			void detection_to_track_assignment_KF(std::shared_ptr<mcmt::Camera> & camera);
+			void detection_to_track_assignment_DCF(std::shared_ptr<mcmt::Camera> & camera);
+			void compare_cost_matrices(std::shared_ptr<mcmt::Camera> & camera);
+			void update_assigned_tracks(std::shared_ptr<mcmt::Camera> & camera);
+			void update_unassigned_tracks(std::shared_ptr<mcmt::Camera> & camera);
+			void create_new_tracks(std::shared_ptr<mcmt::Camera> & camera);
+			void delete_lost_tracks(std::shared_ptr<mcmt::Camera> & camera);
+			std::vector<std::shared_ptr<mcmt::Track>> filter_tracks(std::shared_ptr<mcmt::Camera> & camera);
 
 			// declare utility functions
-			double euclideanDist(Point2f & p, Point2f & q);
-			vector<int> apply_hungarian_algo(vector<vector<double>> & cost_matrix);
-			int average_brightness(shared_ptr<Camera> & camera);
-			string mat_type2encoding(int mat_type);
-			int encoding2mat_type(const string & encoding);
+		double euclideanDist(cv::Point2f & p, cv::Point2f & q);
+		std::vector<int> apply_hungarian_algo(std::vector<std::vector<double>> & cost_matrix);
+		int average_brightness(std::shared_ptr<mcmt::Camera> & camera);
+    	std::string mat_type2encoding(int mat_type);
+		int encoding2mat_type(const std::string & encoding);
 	};
 }
 
