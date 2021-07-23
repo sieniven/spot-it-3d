@@ -13,7 +13,7 @@ def generate_launch_description():
 
 	return LaunchDescription([
 		Node(
-			package='mcmt_track_python',
+			package='mcmt_track',
 			node_executable='mcmt_single_tracker',
 			name='SingleTrackerNode',
 			output='screen',

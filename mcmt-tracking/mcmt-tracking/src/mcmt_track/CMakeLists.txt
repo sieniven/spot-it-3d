@@ -38,7 +38,7 @@ include_directories(
 
 add_library(${PROJECT_NAME}_lib
   "src/mcmt_track_utils.cpp"
-  # "src/mcmt_single_tracker_node.cpp"
+  "src/mcmt_single_tracker_node.cpp"
   "src/mcmt_multi_tracker_node.cpp"
 )
 
@@ -56,12 +56,12 @@ set(DEPENDENCIES
 target_link_libraries(${PROJECT_NAME}_lib)
 ament_target_dependencies(${PROJECT_NAME}_lib ${DEPENDENCIES})
 
-# set(SINGLE_TRACKER_EXECUTABLE "mcmt_single_tracker")
+set(SINGLE_TRACKER_EXECUTABLE "mcmt_single_tracker")
 set(MULTI_TRACKER_EXECUTABLE "mcmt_multi_tracker")
 
-# add_executable(${SINGLE_TRACKER_EXECUTABLE} src/mcmt_single_tracker_main.cpp)
-# target_link_libraries(${SINGLE_TRACKER_EXECUTABLE} ${PROJECT_NAME}_lib)
-# ament_target_dependencies(${SINGLE_TRACKER_EXECUTABLE} ${DEPENDENCIES})
+add_executable(${SINGLE_TRACKER_EXECUTABLE} src/mcmt_single_tracker_main.cpp)
+target_link_libraries(${SINGLE_TRACKER_EXECUTABLE} ${PROJECT_NAME}_lib)
+ament_target_dependencies(${SINGLE_TRACKER_EXECUTABLE} ${DEPENDENCIES})
 
 add_executable(${MULTI_TRACKER_EXECUTABLE} src/mcmt_multi_tracker_main.cpp)
 target_link_libraries(${MULTI_TRACKER_EXECUTABLE} ${PROJECT_NAME}_lib)
@@ -81,9 +81,9 @@ endif()
 ################################################################################################
 # install
 ################################################################################################
-# install(TARGETS ${SINGLE_TRACKER_EXECUTABLE}
-#   DESTINATION lib/${PROJECT_NAME}
-# )
+install(TARGETS ${SINGLE_TRACKER_EXECUTABLE}
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 install(TARGETS ${MULTI_TRACKER_EXECUTABLE}
   DESTINATION lib/${PROJECT_NAME}

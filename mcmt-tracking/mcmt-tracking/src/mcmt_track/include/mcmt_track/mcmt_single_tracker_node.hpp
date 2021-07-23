@@ -48,6 +48,7 @@
 #include <vector>
 #include <list>
 #include <array>
+#include <fstream>
 
 namespace mcmt {
 
@@ -58,7 +59,7 @@ namespace mcmt {
 
 			// declare node parameters
 			rclcpp::Node::SharedPtr node_handle_;
-			rclcpp::Subscription<mcmt_msg::msg::MultiDetectionInfo>::SharedPtr detection_sub_;
+			rclcpp::Subscription<mcmt_msg::msg::SingleDetectionInfo>::SharedPtr detection_sub_;
 			std::string topic_name_;
 
 			// declare camera parameters
@@ -68,16 +69,15 @@ namespace mcmt {
 			bool downsample_;
 
 			// declare video parameters
-			std::string video_input_1_, video_input_2_;
-			std::string output_vid_path_, output_csv_path_1_, output_csv_path_2_;
+			std::string video_input_;
+			std::string output_vid_path_, output_csv_path_;
 			bool is_realtime_;
 			int FRAME_WIDTH_, FRAME_HEIGHT_;
 			cv::VideoWriter recording_;
 
 			// declare ROS2 parameters
-			rclcpp::Parameter IS_REALTIME_param, VIDEO_INPUT_1_param, VIDEO_INPUT_2_param, FRAME_WIDTH_param, 
-												FRAME_HEIGHT_param, OUTPUT_VIDEO_PATH_param, OUTPUT_CSV_PATH_1_param,
-												OUTPUT_CSV_PATH_2_param;
+			rclcpp::Parameter IS_REALTIME_param, VIDEO_INPUT_param, FRAME_WIDTH_param, 
+												FRAME_HEIGHT_param, OUTPUT_VIDEO_PATH_param, OUTPUT_CSV_PATH_param;
 
 			// define good tracks
 			typedef struct GoodTrack {
@@ -88,11 +88,8 @@ namespace mcmt {
 			} GoodTrack;
 
 			// declare tracking variables
-			int frame_count_, next_id_;
-			std::vector<int> origin_;
-			std::array<std::shared_ptr<CameraTracks>, 2> cumulative_tracks_;
-			std::array<int, 2> total_tracks_;
-			std::array<std::map<int, int>, 2> matching_dict_;
+			int frame_count_;
+			std::shared_ptr<CameraTracks> cumulative_tracks_;
 
 			// declare plotting parameters
 			int plot_history_;
@@ -115,39 +112,20 @@ namespace mcmt {
 			};
 
 			// debugging
-			std::vector<std::vector<double>> lines;
 			std::vector<std::string> debug_messages;
 			
 			// tracker node methods
-			void process_msg_info(mcmt_msg::msg::MultiDetectionInfo::SharedPtr msg,
-					std::array<std::shared_ptr<cv::Mat>, 2> & frames,
-					std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks,
-					std::array<std::vector<int>, 2> & dead_tracks);
+			void process_msg_info(mcmt_msg::msg::SingleDetectionInfo::SharedPtr msg,
+					std::shared_ptr<cv::Mat> & frame,
+					std::vector<std::shared_ptr<GoodTrack>>& good_tracks);
 
 			void declare_parameters();
 			void get_parameters();
 			
 			void process_detection_callback();
-			void update_cumulative_tracks(int index, std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks);
-			void prune_tracks(int index);
-			void verify_existing_tracks();
-			void process_new_tracks(int index, int alt,
-				std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & good_tracks,
-				std::array<std::vector<std::shared_ptr<GoodTrack>>, 2> & filter_good_tracks,
-				std::array<std::vector<int>, 2> & dead_tracks);
-			void get_total_number_of_tracks();
-			std::vector<double> normalise_track_plot(std::shared_ptr<TrackPlot> track_plot);
-			double crossCorrelation(std::vector<double> X, std::vector<double> Y);
-			double compute_matching_score(std::shared_ptr<TrackPlot> track_plot,
-				std::shared_ptr<TrackPlot> alt_track_plot, int index, int alt);
-			double geometric_similarity(std::vector<std::shared_ptr<TrackPlot::OtherTrack>> & other_tracks_0,
-				std::vector<std::shared_ptr<TrackPlot::OtherTrack>> & other_tracks_1);
-			double heading_error(std::shared_ptr<TrackPlot> track_plot, 
-				std::shared_ptr<TrackPlot> alt_track_plot, int history);
-			void calculate_3D();
-			void print_frame_summary();
-			void annotate_frames(std::array<std::shared_ptr<cv::Mat>, 2> frames_, std::array<std::shared_ptr<CameraTracks>, 2> cumulative_tracks_);
-			void graphical_UI(cv::Mat combined_frame, std::array<std::shared_ptr<CameraTracks>, 2> cumulative_tracks_);
+			void print_frame_summary(std::vector<std::shared_ptr<GoodTrack>>);
+			void annotate_frames(std::shared_ptr<cv::Mat> frame_, std::shared_ptr<CameraTracks> cumulative_tracks_);
+			void graphical_UI(std::shared_ptr<cv::Mat> frame_, std::shared_ptr<CameraTracks> cumulative_tracks_);
 			void imshow_resized_dual(std::string & window_name, cv::Mat & img);
 			int encoding2mat_type(const std::string & encoding);
 

@@ -76,7 +76,7 @@ McmtMultiTrackerNode::McmtMultiTrackerNode() : Node("MultiTrackerNode") {
 
 	// intialize video writer;
 	recording_ = cv::VideoWriter(output_vid_path_, cv::VideoWriter::fourcc('M','P','4','V'), fps_, 
-		cv::Size(1920, 640));
+		cv::Size(frame_w_ * 2, frame_h_));
 	cap_.release();
 
 	// initialize frame count and track id
@@ -1039,14 +1039,15 @@ void McmtMultiTrackerNode::graphical_UI(cv::Mat combined_frame, std::array<std::
 void McmtMultiTrackerNode::imshow_resized_dual(std::string & window_name, cv::Mat & img) {
 	cv::Size img_size = img.size();
 
-	double aspect_ratio = img_size.width / img_size.height;
+	double aspect_ratio = (double) img_size.width / (double) img_size.height;
 
 	cv::Size window_size;
-	window_size.width = 1920;
-	window_size.height = 1920 / aspect_ratio;
+	window_size.width = 1080;
+	window_size.height = (int) (1080.0 / aspect_ratio);
 	
-	cv::resize(img, img, window_size, 0, 0, cv::INTER_CUBIC);
-	cv::imshow(window_name, img);
+	cv::Mat img_;	
+	cv::resize(img, img_, window_size, 0, 0, cv::INTER_CUBIC);
+	cv::imshow(window_name, img_);
 }
 
 /**

@@ -749,11 +749,11 @@ namespace mcmt {
 					
 					if (track->consecutiveInvisibleCount_ == 0) {
 						// green color bounding box if track is detected in the current frame
-						cv::rectangle(frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);
+						// cv::rectangle(frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);
 						cv::rectangle(masked_, rect_top_left, rect_bottom_right, cv::Scalar(0, 255, 0), 1);
 					} else {
 						// red color bounding box if track is not detected in the current frame
-						cv::rectangle(frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 0, 255), 1);
+						// cv::rectangle(frame_, rect_top_left, rect_bottom_right, cv::Scalar(0, 0, 255), 1);
 						cv::rectangle(masked_, rect_top_left, rect_bottom_right, cv::Scalar(0, 0, 255), 1);
 					}
 				}
@@ -927,6 +927,7 @@ namespace mcmt {
 		std::vector<int16_t> goodtrack_id_list;
 		std::vector<int16_t> goodtrack_x_list;
 		std::vector<int16_t> goodtrack_y_list;
+		std::vector<int16_t> goodtrack_size_list;
 		std::vector<int16_t> deadtrack_id_list;
 
 		// get good track's information
@@ -934,6 +935,7 @@ namespace mcmt {
 			goodtrack_id_list.push_back(track->id_);
 			goodtrack_x_list.push_back(track->centroid_.x);
 			goodtrack_y_list.push_back(track->centroid_.y);
+			goodtrack_size_list.push_back(track->size_);
 		}
 
 		// get gone track ids
@@ -947,6 +949,7 @@ namespace mcmt {
 		dect_info.goodtracks_id = goodtrack_id_list;
 		dect_info.goodtracks_x = goodtrack_x_list;
 		dect_info.goodtracks_y = goodtrack_y_list;
+		dect_info.goodtracks_size = goodtrack_size_list;
 		dect_info.gonetracks_id = deadtrack_id_list;
 
 		// publish detection info
