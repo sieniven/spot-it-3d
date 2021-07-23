@@ -8,11 +8,12 @@
   </description>
   <maintainer email="sieniven@gmail.com">niven</maintainer>
   <maintainer email="shaoxuan.seah@gmail.com">shao xuan</maintainer>
+  <maintainer email="sps08.lauyanhan@gmail.com">yan han</maintainer>
   <license>Temasek Laboratories, Centre of Flight Sciences</license>
   <url type="website">http://temasek-labs.nus.edu.sg/</url>
   <url type="repository">https://github.com/sieniven/spot-it-3d/</url>
 
-  <depend>rclcpp</depend>
+  <depend>rclpy</depend>
   <depend>rcutils</depend>
   <depend>sensor_msgs</depend>
   <depend>std_msgs</depend>
@@ -21,8 +22,10 @@
   <depend>mcmt_msg</depend>
   <depend>cv_bridge</depend>
 
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

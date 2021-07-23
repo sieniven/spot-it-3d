@@ -157,6 +157,7 @@ def equalize_hist_rgb(frame):
     return cv2.merge((b_out, g_out, r_out))
 
 
+# Calculate average brightness of image based on grayscale histogram
 def average_brightness(bins, frame, mask):
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     histogram_gray = cv2.calcHist([frame], [0], mask, [bins], [0, 256])
@@ -166,6 +167,18 @@ def average_brightness(bins, frame, mask):
         weighted_sum += bin * pixels
 
     return int((weighted_sum / sum(histogram_gray)) * (256 / bins))
+
+
+# Calculate average brightness of image based on HSV's V histogram
+def average_brightness_hsv(bins, frame, mask):
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    histogram_v = cv2.calcHist([frame], [2], mask, [bins], [0, 256])
+    weighted_sum = 0
+
+    for bin, pixels in enumerate(histogram_v):
+        weighted_sum += bin * pixels
+
+    return int((weighted_sum / sum(histogram_v)) * (256 / bins))
 
 
 if __name__ == '__main__':

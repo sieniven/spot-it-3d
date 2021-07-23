@@ -50,6 +50,10 @@ namespace mcmt {
 		RCLCPP_INFO(this->get_logger(), "Initializing Mcmt Multi Detector Node");
 
 		initialize_cameras();
+		
+		// save a copy of the original frame before applying modifications to it
+		cv::Mat store;
+		store = camera->frame_.clone();
 
 		// create detection info publisher with topic name "mcmt/detection_info"
 		topic_name_ = "mcmt/detection_info";
@@ -79,6 +83,9 @@ namespace mcmt {
 				}
 
 				sky_saturation(camera);
+
+				// Correct for sunlight effects
+				apply_sun_compensation(camera);
 
 				// apply background subtraction
 				camera->masked_ = apply_bg_subtractions(camera);
@@ -112,6 +119,9 @@ namespace mcmt {
 				// update unassigned tracks, and delete lost tracks
 				update_unassigned_tracks(camera);
 				delete_lost_tracks(camera);
+
+				// restore the original frame to be written to trackplot's video output
+				camera->frame_ = store.clone();
 
 				// create new tracks
 				create_new_tracks(camera);
@@ -169,6 +179,7 @@ namespace mcmt {
 
 		// initialize kernel used for morphological transformations
 		element_ = cv::getStructuringElement(0, cv::Size(5, 5));
+
 	}
 
 	void McmtMultiDetectNode::sky_saturation(shared_ptr<Camera> & camera) {
@@ -181,14 +192,91 @@ namespace mcmt {
 		cv::cvtColor(camera->frame_, camera->frame_, cv::COLOR_HSV2BGR);
 	}
 
+
+	/**
+	 * Apply sun compensation on frame and return the sun compensated frame.
+	 * Sun compensation is needed when there is sunlight illuminating the target and making
+	 * it "blend" into sky. Increasing contrast of the entire frame is a solution, but it
+	 * generates false positives among treeline. Instead, sun compensation works by applying
+	 * localised contrast increase to regions of the frame identified as sky
+	 */
+	void McmtMultiDetectNode::apply_sun_compensation(std::shared_ptr<mcmt::Camera> & camera) {
+		cv::Mat hsv, sky, non_sky, mask;
+		
+		// Get HSV version of the frame
+		cv::cvtColor(camera->frame_, hsv, cv::COLOR_BGR2HSV);
+
+		// Threshold the HSV image to extract the sky and put it in sky frame
+		// The threshold V value for sky is determined using Otsu thresholding
+		// Get back the original RGB frame using bitwise_and
+		std::vector<cv::Mat> channels;
+		cv::split(hsv, channels);
+		cv::threshold(channels[2], mask, -1, 255, cv::THRESH_OTSU);
+		cv::bitwise_and(camera->frame_, camera->frame_, sky, mask);
+		// cv::imshow("sky", sky);
+
+		// Extract the treeline and put it in non_sky frame
+		// The mask for the treeline is the inversion of the sky mask
+		// The treeline is converted back to RGB by using frame_ in the bitwise_and cmd
+		cv::bitwise_not(mask, mask);
+		cv::bitwise_and(camera->frame_, camera->frame_, non_sky, mask);
+		// cv::imshow("non sky", non_sky);
+
+		// Scale the saturation and contrast based on pixel brightness
+		sky = scale_hsv_pixels(sky);
+
+		// sky.convertTo(sky, -1, MAX_SUN_CONTRAST_GAIN, SUN_BRIGHTNESS_GAIN);
+		// cv::erode(sky, sky, cv::getStructuringElement(0, cv::Size(5,5)));
+
+		// Recombine the sky and treeline
+		cv::add(sky, non_sky, camera->frame_);
+		cv::imshow("After sun compensation", camera->frame_);
+	}
+
+	/**
+	 * This function does contrast and saturation scaling on each pixel of the
+	 * sky frame for sun compensation purposes
+	 */
+	cv::Mat McmtMultiDetectNode::scale_hsv_pixels(cv::Mat sky) {
+		// HSV is used to easily adjust saturation and value
+		cv::cvtColor(sky, sky, cv::COLOR_BGR2HSV);
+		
+		// iterate through each pixel in the hsv sky frame
+		for (int row = 0; row < sky.rows; row++){
+			for (int col = 0; col < sky.cols; col++){
+				
+				// ignore black pixels (these are areas which are masked out)
+				if (sky.at<cv::Vec3b>(row, col)[2] > 0){
+
+					// Decrease saturation based on how bright the pixel is
+					// The brighter the pixel, the greater the decrease
+					// The formula used is our own model that assumes linear relationship
+					// between saturation scale factor (sat) and pixel brightness
+					float sat = 1 - 0.7 * sky.at<cv::Vec3b>(row, col)[2] / 255;
+					sky.at<cv::Vec3b>(row, col)[1] *= sat;
+
+					// If the pixel is too dark, max its value to provide contrast
+					if (sky.at<cv::Vec3b>(row, col)[2] < 150){
+						sky.at<cv::Vec3b>(row, col)[2] = 255;
+					}
+				}
+			}
+		}
+		cv::cvtColor(sky, sky, cv::COLOR_HSV2BGR);
+		return sky;
+	}
+
 	/**
 	 * This function applies background subtraction to the raw image frames to obtain 
 	 * thresholded mask image.
 	 */
-	cv::Mat McmtMultiDetectNode::apply_bg_subtractions(std::shared_ptr<Camera> & camera) {
+	cv::Mat McmtMultiDetectNode::apply_bg_subtractions(std::shared_ptr<mcmt::Camera> & camera) {
 		cv::Mat masked, converted_mask;
+
+		// Apply contrast and brightness gains
+		// To-do: Explain how the formula for calculating brightness in the 2nd line works
 		cv::convertScaleAbs(camera->frame_, masked);
-		cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness(camera) + BRIGHTNESS_GAIN_));
+		cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness(camera, cv::COLOR_BGR2GRAY, 0) + BRIGHTNESS_GAIN_));
 		
 		// subtract background
 		camera->fgbg_->apply(masked, masked, FGBG_LEARNING_RATE_);
@@ -784,18 +872,24 @@ namespace mcmt {
 
 	/**
 	 * This function calculates the average brightness value of the frame
+	 * Takes in color conversion type (e.g. BGR2GRAY, BGR2HSV) and pointer to list of
+	 * color channels that represent brightness (e.g. for HSV, use Channel 2, which is V)
+	 * Returns the average brightness
 	 */
-	int McmtMultiDetectNode::average_brightness(std::shared_ptr<Camera> & camera) {
+	int McmtMultiDetectNode::average_brightness(std::shared_ptr<mcmt::Camera> & camera, 
+		cv::ColorConversionCodes colortype, int channel) {
+
 		// declare and initialize required variables
 		cv::Mat hist;
 		int bins = 16;
 		float hrange[] = {0, 256};
 		const float* range = {hrange};
 		float weighted_sum = 0;
+		int chan[1] = {channel};
 
 		// get grayscale frame and calculate histogram
-		cv::cvtColor(camera->frame_, camera->gray_, cv::COLOR_BGR2GRAY);
-		cv::calcHist(&camera->gray_, 1, 0, cv::Mat(), hist, 1, &bins, &range, true, false);
+		cv::cvtColor(camera->frame_, camera->color_converted_, colortype);
+		cv::calcHist(&camera->color_converted_, 1, chan, cv::Mat(), hist, 1, &bins, &range, true, false);
 		cv::Scalar total_sum = cv::sum(hist);
 
 		// iterate through each bin
@@ -835,6 +929,12 @@ namespace mcmt {
 		this->declare_parameter("DILATION_ITER");
 		this->declare_parameter("REMOVE_GROUND_ITER");
 		this->declare_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
+
+		// declare sun compensation parameters
+		this->declare_parameter("BRIGHTNESS_THRES");
+		this->declare_parameter("SKY_THRES");
+		this->declare_parameter("MAX_SUN_CONTRAST_GAIN");
+		this->declare_parameter("SUN_BRIGHTNESS_GAIN");
 	}
 
 	/**
@@ -870,6 +970,12 @@ namespace mcmt {
 		BACKGROUND_CONTOUR_CIRCULARITY_param = this->
 			get_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
 
+		// get sun compensation params
+		BRIGHTNESS_THRES_param = this->get_parameter("BRIGHTNESS_THRES");
+		SKY_THRES_param = this->get_parameter("SKY_THRES");
+		MAX_SUN_CONTRAST_GAIN_param = this->get_parameter("MAX_SUN_CONTRAST_GAIN");
+		SUN_BRIGHTNESS_GAIN_param = this->get_parameter("SUN_BRIGHTNESS_GAIN");
+
 		// initialize and get the parameter values
 		FRAME_WIDTH_ = FRAME_WIDTH_param.as_int(),
 		FRAME_HEIGHT_ = FRAME_HEIGHT_param.as_int(), 
@@ -890,6 +996,10 @@ namespace mcmt {
 		DILATION_ITER_ = DILATION_ITER_param.as_int(),
 		REMOVE_GROUND_ITER_ = REMOVE_GROUND_ITER_param.as_double(),
 		BACKGROUND_CONTOUR_CIRCULARITY_ = BACKGROUND_CONTOUR_CIRCULARITY_param.as_double();
+		BRIGHTNESS_THRES = BRIGHTNESS_THRES_param.as_int();
+		SKY_THRES = SKY_THRES_param.as_int();
+		MAX_SUN_CONTRAST_GAIN = MAX_SUN_CONTRAST_GAIN_param.as_double();
+		SUN_BRIGHTNESS_GAIN = SUN_BRIGHTNESS_GAIN_param.as_int();
 
 		// initialize video parameters
 		is_realtime_ = IS_REALTIME_param.as_bool();

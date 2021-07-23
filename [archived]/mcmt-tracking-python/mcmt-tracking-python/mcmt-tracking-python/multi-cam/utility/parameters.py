@@ -95,3 +95,15 @@ FGBG_LEARNING_RATE = 0.2
 # INT
 # Number of iterations of pixel dilation.
 DILATION_ITER = 2
+
+'''
+SUN COMPENSATION PARAMETERS
+'''
+
+# BRIGHTNESS THRESHOLD
+# If the average HSV V Value of an image is greater than this, sun compensation will be applied
+BRIGHTNESS_THRES = 160
+
+# SKY THRESHOLD
+# If a pixel in the image has HSV V value greater than this, the pixel belongs to the sky
+SKY_THRES = 200

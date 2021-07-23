@@ -1,8 +1,9 @@
 import os
 import sys
 
-utils_path = os.path.join(os.path.expanduser('~'), 'spot-it-3d/[archived]/mcmt-tracking-python/mcmt-tracking-python/mcmt-tracking-python/multi-cam/utility')
-sys.path.append(utils_path)
+# utils_path = os.path.join(os.path.expanduser('~'), 'spot-it-3d/[archived]/mcmt-tracking-python/mcmt-tracking-python/mcmt-tracking-python/multi-cam/utility')
+# sys.path.append(utils_path)
+sys.path.append('../mcmt-tracking-python/multi-cam/utility/')
 
 import multiprocessing
 from detection_process import SingleCameraDetector, MultiCameraDetector

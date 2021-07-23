@@ -32,6 +32,7 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/ximgproc.hpp>
+#include <opencv2/xphoto.hpp>
 
 // ros2 header files
 #include <rclcpp/rclcpp.hpp>
@@ -65,7 +66,7 @@ namespace mcmt {
 
 			// declare video parameters
 			cv::VideoCapture cap_;
-			cv::Mat frame_, masked_, gray_, mask_, element_, removebg_;
+			cv::Mat frame_, masked_, color_converted_, mask_, element_, removebg_;
 			std::string video_input_;
 			int frame_w_, frame_h_, fps_, frame_id_, next_id_;
 			float scale_factor_, aspect_ratio_;
@@ -107,6 +108,9 @@ namespace mcmt {
 												FGBG_LEARNING_RATE_param, DILATION_ITER_param, REMOVE_GROUND_ITER_param, 
 												BACKGROUND_CONTOUR_CIRCULARITY_param; 
 
+			// declare ROS2 sun compemsation parameters
+			rclcpp::Parameter BRIGHTNESS_THRES_param, SKY_THRES_param, MAX_SUN_CONTRAST_GAIN_param, SUN_BRIGHTNESS_GAIN_param;
+
 			// declare video parameters
 			int FRAME_WIDTH_, FRAME_HEIGHT_, VIDEO_FPS_, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_;
 
@@ -117,6 +121,10 @@ namespace mcmt {
 			// declare background subtractor parameters
 			int FGBG_HISTORY_, NMIXTURES_, BRIGHTNESS_GAIN_, DILATION_ITER_;
 			float BACKGROUND_RATIO_, FGBG_LEARNING_RATE_, REMOVE_GROUND_ITER_, BACKGROUND_CONTOUR_CIRCULARITY_;
+
+			// declare sun compensation parameters
+			int BRIGHTNESS_THRES, SKY_THRES, SUN_BRIGHTNESS_GAIN;
+			float MAX_SUN_CONTRAST_GAIN;
 
 			// detector functions
 			void start_record();
@@ -134,6 +142,8 @@ namespace mcmt {
 			void detect_objects();
 			cv::Mat remove_ground();
 			cv::Mat apply_bg_subtractions();
+			void apply_sun_compensation();
+			cv::Mat scale_hsv_pixels(cv::Mat sky);
 			void predict_new_locations_of_tracks();
 			void clear_track_variables();
 			void detection_to_track_assignment_KF();
@@ -148,7 +158,7 @@ namespace mcmt {
 			// declare utility functions
 			double euclideanDist(cv::Point2f & p, cv::Point2f & q);
 			std::vector<int> apply_hungarian_algo(std::vector<std::vector<double>> & cost_matrix);
-			int average_brightness();
+			int average_brightness(cv::ColorConversionCodes colortype, int channel);
 			std::string mat_type2encoding(int mat_type);
 			int encoding2mat_type(const std::string & encoding);
 	};
