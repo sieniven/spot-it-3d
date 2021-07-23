@@ -205,21 +205,16 @@ namespace mcmt {
 	}
 
 	/**
-	 *  This function to stops the video capture
-	 */
-	void McmtSingleDetectNode::stop_record() {
-		std::cout << "Stop capturing camera completed!" << std::endl;
-		cap_.release();
-	}
-
-	/**
 	 * This function applies background subtraction to the raw image frames to obtain 
 	 * thresholded mask image.
 	 */
 	cv::Mat McmtSingleDetectNode::apply_bg_subtractions() {
 		cv::Mat masked, converted_mask;
+
+		// Apply contrast and brightness gains
+		// To-do: Explain how the formula for calculating brightness in the 2nd line works
 		cv::convertScaleAbs(frame_, masked);
-		cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness() + BRIGHTNESS_GAIN_));
+		cv::convertScaleAbs(masked, masked, 1, (256 - average_brightness(cv::COLOR_BGR2GRAY, 0) + BRIGHTNESS_GAIN_));
 		
 		// subtract background
 		fgbg_->apply(masked, masked, FGBG_LEARNING_RATE_);
@@ -875,7 +870,7 @@ namespace mcmt {
 		HungarianAlgorithm hungAlgo;
 		vector<int> assignment;
 
-		double cost = hungAlgo.Solve(cost_matrix, assignment);
+		hungAlgo.Solve(cost_matrix, assignment);
 		return assignment;
 	}
 
@@ -903,6 +898,7 @@ namespace mcmt {
 		for (int i=0; i < 16; i++) {
 			weighted_sum += (i * (hist.at<float>(i)));
 		}
+		return int((weighted_sum/total_sum.val[0]) * (256/16));
 	}
 
 	/**

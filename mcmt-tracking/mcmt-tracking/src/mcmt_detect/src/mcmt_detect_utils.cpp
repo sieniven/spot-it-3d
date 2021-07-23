@@ -127,8 +127,7 @@ Track::Track(int track_id, float size, cv::Point2f centroid, int video_fps,	floa
 /**
  * This function uses the kalman filter of the track to predict the next known location.
  */
-void Track::predictKF()
-{
+void Track::predictKF() {
 	cv::Mat prediction = kf_->predict();
 	predicted_.x = prediction.at<float>(0);
 	predicted_.y = prediction.at<float>(1);
@@ -138,8 +137,7 @@ void Track::predictKF()
  * This function uses the kalman filter of the track to update the filter with the measured
  * location of the detected blob in the current frame.
  */
-void Track::updateKF(cv::Point2f & measurement)
-{
+void Track::updateKF(cv::Point2f & measurement) {
 	cv::Mat measure = cv::Mat::zeros(2, 1, CV_32F);
 	measure.at<float>(0) = measurement.x;
 	measure.at<float>(1) = measurement.y;
@@ -153,10 +151,9 @@ void Track::updateKF(cv::Point2f & measurement)
 /**
  * This function uses the DCF of the track to predict the next known location.
  */
-void Track::predictDCF(cv::Mat & frame)
-{
+void Track::predictDCF(cv::Mat & frame) {
 	if (age_ >= vid_fps_ && is_dcf_init_ == true) {
-		bool ok = tracker_->update(frame, box_);
+		tracker_->update(frame, box_);
 	}
 }
 

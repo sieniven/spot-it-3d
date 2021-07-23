@@ -50,10 +50,6 @@ namespace mcmt {
 		RCLCPP_INFO(this->get_logger(), "Initializing Mcmt Multi Detector Node");
 
 		initialize_cameras();
-		
-		// save a copy of the original frame before applying modifications to it
-		cv::Mat store;
-		store = camera->frame_.clone();
 
 		// create detection info publisher with topic name "mcmt/detection_info"
 		topic_name_ = "mcmt/detection_info";
@@ -81,6 +77,10 @@ namespace mcmt {
 					std::raise(SIGINT);
 					break;
 				}
+
+				// save a copy of the original frame before applying modifications to it
+				cv::Mat store;
+				store = camera->frame_.clone();
 
 				sky_saturation(camera);
 
@@ -866,7 +866,7 @@ namespace mcmt {
 		HungarianAlgorithm hungAlgo;
 		vector<int> assignment;
 
-		double cost = hungAlgo.Solve(cost_matrix, assignment);
+		hungAlgo.Solve(cost_matrix, assignment);
 		return assignment;
 	}
 
