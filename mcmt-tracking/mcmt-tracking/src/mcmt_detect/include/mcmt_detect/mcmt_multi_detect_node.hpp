@@ -114,12 +114,11 @@ namespace mcmt {
 
 			// declare detection and tracking functions
 			void initialize_cameras();
-			void sky_saturation(std::shared_ptr<mcmt::Camera> & camera);
+			void apply_env_compensation(std::shared_ptr<mcmt::Camera> & camera);
+			cv::Mat apply_bg_subtractions(std::shared_ptr<mcmt::Camera> & camera, int frame_id);
 			void detect_objects(std::shared_ptr<mcmt::Camera> & camera);
-			cv::Mat remove_ground(std::shared_ptr<mcmt::Camera> & camera);
-			cv::Mat apply_bg_subtractions(std::shared_ptr<mcmt::Camera> & camera);
-			void apply_sun_compensation(std::shared_ptr<mcmt::Camera> & camera);
-			cv::Mat scale_hsv_pixels(cv::Mat sky);
+			cv::Mat remove_ground(std::shared_ptr<mcmt::Camera> & camera, int masked_id);
+			void remove_overlapped_detections(std::shared_ptr<mcmt::Camera> & camera);
 			void predict_new_locations_of_tracks(std::shared_ptr<mcmt::Camera> & camera);
 			void clear_track_variables(std::shared_ptr<mcmt::Camera> & camera);
 			void detection_to_track_assignment_KF(std::shared_ptr<mcmt::Camera> & camera);
