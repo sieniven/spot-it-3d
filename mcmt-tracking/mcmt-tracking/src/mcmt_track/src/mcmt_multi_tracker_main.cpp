@@ -1,5 +1,5 @@
- /**
- * @file mcmt_multi_detect_main.cpp
+/**
+ * @file mcmt_multi_tracker_main.cpp
  * @author Dr Sutthiphong Srigrarom (Spot), spot.srigrarom@nus.edu.sg
  * @author Mr Niven Sie, sieniven@gmail.com
  * @author Mr Seah Shao Xuan, seahshaoxuan@gmail.com
@@ -17,18 +17,16 @@
  * This file is part of the SPOT-IT 3D repository and can be downloaded at:
  * https://github.com/sieniven/spot-it-3d
  * 
- * This file contains the main launch pipeline for the detector node that
- * can be found in mcmt_multi_detect_node.cpp.
+ * This file contains the main launch pipeline for the tracker node that
+ * can be found in mcmt_multi_tracker_node.cpp.
  */
 
 // opencv header files
 #include <opencv2/opencv.hpp>
-
-// ROS2 header files
 #include <rclcpp/rclcpp.hpp>
 
 // local header files
-#include <mcmt_detect/mcmt_multi_detect_node.hpp>
+#include <mcmt_track/mcmt_multi_tracker_node.hpp>
 
 // standard package imports
 #include <chrono>
@@ -36,30 +34,46 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#include <csignal>
 #include <stdio.h>
+#include <iostream>
+#include <exception>
+#include <signal.h>
+#include <stdlib.h>
 
-std::sig_atomic_t signalled = 0;
+using namespace mcmt;
 
-void signal_handler(int signal_num) {
-	signalled = 1;
-	printf("Multi Camera Detector Node interrupted. Shutting down...\n");
-	rclcpp::shutdown();
+class InterruptException : public std::exception {
+	public:
+		InterruptException(int s) : S(s) {}
+		int S;
+};
+
+void sig_to_exception(int s) {
+	throw InterruptException(s);
 }
 
 int main(int argc, char * argv[]) {
-	printf("Launching Multi Detector Node....\n");
+	struct sigaction sigIntHandler;
+	sigIntHandler.sa_handler = sig_to_exception;
+	sigemptyset(&sigIntHandler.sa_mask);
+	sigIntHandler.sa_flags = 0;
+	sigaction(SIGINT, &sigIntHandler, NULL);
 
-	std::signal(SIGINT, signal_handler);
-
+	printf("Launching Multi Tracker Node....\n");
+		
 	rclcpp::init(argc, argv);
 
 	// initialize detector node
-	auto detect_node = std::make_shared<mcmt::McmtMultiDetectNode>();
+	auto track_node = std::make_shared<McmtMultiTrackerNode>();
 
-	while (signalled == false) {
-		detect_node->start_record();
+	try {
+		rclcpp::spin(track_node);
+	} catch(InterruptException& e) {
+		printf("Multi Camera Tracker Node interrupted. Saving video and shutting down...\n");
+		track_node->recording_.release();
+		cv::destroyAllWindows();
+		rclcpp::shutdown();
+		return 1;
 	}
-
-	return 0;
+    return 0;
 }

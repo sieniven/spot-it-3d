@@ -1,13 +1,33 @@
-/** Detection package utilities
- * Author: Niven Sie, sieniven@gmail.com
+/**
+ * @file mcmt_detect_utils.cpp
+ * @author Dr Sutthiphong Srigrarom (Spot), spot.srigrarom@nus.edu.sg
+ * @author Mr Niven Sie, sieniven@gmail.com
+ * @author Mr Seah Shao Xuan, seahshaoxuan@gmail.com
+ * @author Mr Lau Yan Han, sps08.lauyanhan@gmail.com
  * 
- * This code contains the classes Camera and Track, used in our main detection
- * and tracking algorithm.
+ * This code is conceptualised, created and published by the SPOT-IT 3D team
+ * from the Department of Mechanical Engineering, Faculty of Engineering 
+ * at the National University of Singapore. SPOT-IT 3D refers to the 
+ * Simultaneous Positioning, Observing, Tracking, Identifying Targets in 3D.
+ * This software utilizes a multi-camera surveillance system for real-time 
+ * multiple target tracking capabilities. This software capability is highly
+ * applicable for monitoring specific areas, and some use cases include monitoring 
+ * airspaces, traffic junctions, etc.
+ * 
+ * This file is part of the SPOT-IT 3D repository and can be downloaded at:
+ * https://github.com/sieniven/spot-it-3d
+ * 
+ * This file contains the definition of the classes (Camera and Track) and their
+ * associated methods, which is primarily used in the detection pipeline.
  */
 
+// mathematical constants
 #define _USE_MATH_DEFINES
 
+// local header files
 #include <mcmt_detect/mcmt_detect_utils.hpp>
+
+// standard package imports
 #include <stdlib.h>
 #include <math.h>
 #include <memory>
@@ -20,13 +40,7 @@ using namespace mcmt;
  * This class is for tracking the detected blobs, and using state estimators 
  * (KF and DCF) to predict the location of the track in the next frame.
 */
-Track::Track(
-	int track_id,
-	float size,
-	cv::Point2f centroid,
-	int video_fps,
-	float sec_filter_delay)
-{
+Track::Track(int track_id, float size, cv::Point2f centroid, int video_fps,	float sec_filter_delay) {
 	vid_fps_ = video_fps;
 	sec_filter_delay_ = sec_filter_delay;
 	
@@ -113,8 +127,7 @@ Track::Track(
 /**
  * This function uses the kalman filter of the track to predict the next known location.
  */
-void Track::predictKF()
-{
+void Track::predictKF() {
 	cv::Mat prediction = kf_->predict();
 	predicted_.x = prediction.at<float>(0);
 	predicted_.y = prediction.at<float>(1);
@@ -124,8 +137,7 @@ void Track::predictKF()
  * This function uses the kalman filter of the track to update the filter with the measured
  * location of the detected blob in the current frame.
  */
-void Track::updateKF(cv::Point2f & measurement)
-{
+void Track::updateKF(cv::Point2f & measurement) {
 	cv::Mat measure = cv::Mat::zeros(2, 1, CV_32F);
 	measure.at<float>(0) = measurement.x;
 	measure.at<float>(1) = measurement.y;
@@ -139,10 +151,9 @@ void Track::updateKF(cv::Point2f & measurement)
 /**
  * This function uses the DCF of the track to predict the next known location.
  */
-void Track::predictDCF(cv::Mat & frame)
-{
+void Track::predictDCF(cv::Mat & frame) {
 	if (age_ >= vid_fps_ && is_dcf_init_ == true) {
-		bool ok = tracker_->update(frame, box_);
+		tracker_->update(frame, box_);
 	}
 }
 
@@ -187,8 +198,7 @@ Camera::Camera(
 	int fgbg_history,
 	float background_ratio,
 	int nmixtures
-)
-{
+) {
 	// get video input and camera index
 	video_input_ = video_input;
 	cam_index_ = index;
@@ -218,11 +228,11 @@ Camera::Camera(
 	}
 
 	if (!cap_.isOpened()) {
-    std::cout << "Error: Cannot open camera! Please check!" << std::endl;
-  }
-	else {
+	std::cout << "Error: Cannot open camera! Please check!" << std::endl;
+	} else {
 		std::cout << "Camera opened successful!" << std::endl;
 	}
+	
 	cap_.set(cv::CAP_PROP_FPS, 30);
 
 	// initialize blob detector
