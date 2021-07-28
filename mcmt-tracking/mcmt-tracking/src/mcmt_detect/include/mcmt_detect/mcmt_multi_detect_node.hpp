@@ -83,9 +83,6 @@ namespace mcmt {
 						FGBG_LEARNING_RATE_param, DILATION_ITER_param, REMOVE_GROUND_ITER_param, 
 						BACKGROUND_CONTOUR_CIRCULARITY_param;
 
-			// declare ROS2 sun compemsation parameters
-			rclcpp::Parameter BRIGHTNESS_THRES_param, SKY_THRES_param, MAX_SUN_CONTRAST_GAIN_param, SUN_BRIGHTNESS_GAIN_param;
-
 			// declare video parameters
 			int FRAME_WIDTH_, FRAME_HEIGHT_, VIDEO_FPS_, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_;
 
@@ -96,10 +93,6 @@ namespace mcmt {
 			// declare background subtractor parameters
 			int FGBG_HISTORY_, NMIXTURES_, BRIGHTNESS_GAIN_, DILATION_ITER_;
 			float BACKGROUND_RATIO_, FGBG_LEARNING_RATE_, REMOVE_GROUND_ITER_, BACKGROUND_CONTOUR_CIRCULARITY_;
-
-			// declare sun compensation parameters
-			int BRIGHTNESS_THRES, SKY_THRES, SUN_BRIGHTNESS_GAIN;
-			float MAX_SUN_CONTRAST_GAIN;
 
 			// detector function
 			void start_record();

@@ -992,12 +992,6 @@ namespace mcmt {
 		this->declare_parameter("DILATION_ITER");
 		this->declare_parameter("REMOVE_GROUND_ITER");
 		this->declare_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
-
-		// declare sun compensation parameters
-		this->declare_parameter("BRIGHTNESS_THRES");
-		this->declare_parameter("SKY_THRES");
-		this->declare_parameter("MAX_SUN_CONTRAST_GAIN");
-		this->declare_parameter("SUN_BRIGHTNESS_GAIN");
 	}
 
 	/**
@@ -1033,12 +1027,6 @@ namespace mcmt {
 		BACKGROUND_CONTOUR_CIRCULARITY_param = this->
 			get_parameter("BACKGROUND_CONTOUR_CIRCULARITY");
 
-		// get sun compensation params
-		BRIGHTNESS_THRES_param = this->get_parameter("BRIGHTNESS_THRES");
-		SKY_THRES_param = this->get_parameter("SKY_THRES");
-		MAX_SUN_CONTRAST_GAIN_param = this->get_parameter("MAX_SUN_CONTRAST_GAIN");
-		SUN_BRIGHTNESS_GAIN_param = this->get_parameter("SUN_BRIGHTNESS_GAIN");
-
 		// initialize and get the parameter values
 		FRAME_WIDTH_ = FRAME_WIDTH_param.as_int(),
 		FRAME_HEIGHT_ = FRAME_HEIGHT_param.as_int(), 
@@ -1059,11 +1047,6 @@ namespace mcmt {
 		DILATION_ITER_ = DILATION_ITER_param.as_int(),
 		REMOVE_GROUND_ITER_ = REMOVE_GROUND_ITER_param.as_double(),
 		BACKGROUND_CONTOUR_CIRCULARITY_ = BACKGROUND_CONTOUR_CIRCULARITY_param.as_double();
-		BRIGHTNESS_THRES = BRIGHTNESS_THRES_param.as_int();
-		SKY_THRES = SKY_THRES_param.as_int();
-		MAX_SUN_CONTRAST_GAIN = MAX_SUN_CONTRAST_GAIN_param.as_double();
-		SUN_BRIGHTNESS_GAIN = SUN_BRIGHTNESS_GAIN_param.as_int();
-
 
 		// initialize video parameters
 		is_realtime_ = IS_REALTIME_param.as_bool();
