@@ -102,7 +102,8 @@ namespace mcmt {
 
 			// declare video parameters
 			cv::VideoCapture cap_;
-			cv::Mat frame_, masked_, color_converted_, mask_, removebg_;
+			cv::Mat frame_, frame_ec_, color_converted_, element_;
+			std::array<cv::Mat, 2> masked_, removebg_;
 			std::string video_input_;
 			int cam_index_, frame_w_, frame_h_, fps_, next_id_;
 			float scale_factor_, aspect_ratio_;
@@ -113,7 +114,9 @@ namespace mcmt {
 			std::vector<int> dead_tracks_;
 
 			// declare detection variables
+			std::array<std::vector<float>,2> sizes_temp_;
 			std::vector<float> sizes_;
+			std::array<std::vector<cv::Point2f>,2> centroids_temp_;
 			std::vector<cv::Point2f> centroids_;
 
 			// declare tracking variables
@@ -129,7 +132,7 @@ namespace mcmt {
 
 			// declare blob detector and background subtractor
 			cv::Ptr<cv::SimpleBlobDetector> detector_;
-			cv::Ptr<cv::BackgroundSubtractorMOG2> fgbg_;
+			std::array<cv::Ptr<cv::BackgroundSubtractorMOG2>, 2> fgbg_;
 	};
 }
 

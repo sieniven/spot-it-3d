@@ -66,7 +66,8 @@ namespace mcmt {
 
 			// declare video parameters
 			cv::VideoCapture cap_;
-			cv::Mat frame_, masked_, color_converted_, mask_, element_, removebg_;
+			cv::Mat frame_, frame_ec_, color_converted_, element_;
+			std::array<cv::Mat, 2> masked_, removebg_;
 			std::string video_input_;
 			int frame_w_, frame_h_, fps_, frame_id_, next_id_;
 			float scale_factor_, aspect_ratio_;
@@ -77,12 +78,14 @@ namespace mcmt {
 			std::vector<int> dead_tracks_;
 
 			// declare detection variables
+			std::array<std::vector<float>,2> sizes_temp_;
 			std::vector<float> sizes_;
+			std::array<std::vector<cv::Point2f>,2> centroids_temp_;
 			std::vector<cv::Point2f> centroids_;
 
 			// declare blob detector and background subtractor
 			cv::Ptr<cv::SimpleBlobDetector> detector_;
-			cv::Ptr<cv::BackgroundSubtractorMOG2> fgbg_;
+			std::array<cv::Ptr<cv::BackgroundSubtractorMOG2>, 2> fgbg_;
 
 			// declare tracking variables
 			std::vector<int> unassigned_tracks_, unassigned_detections_;
@@ -108,9 +111,6 @@ namespace mcmt {
 												FGBG_LEARNING_RATE_param, DILATION_ITER_param, REMOVE_GROUND_ITER_param, 
 												BACKGROUND_CONTOUR_CIRCULARITY_param; 
 
-			// declare ROS2 sun compemsation parameters
-			rclcpp::Parameter BRIGHTNESS_THRES_param, SKY_THRES_param, MAX_SUN_CONTRAST_GAIN_param, SUN_BRIGHTNESS_GAIN_param;
-
 			// declare video parameters
 			int FRAME_WIDTH_, FRAME_HEIGHT_, VIDEO_FPS_, MAX_TOLERATED_CONSECUTIVE_DROPPED_FRAMES_;
 
@@ -121,10 +121,6 @@ namespace mcmt {
 			// declare background subtractor parameters
 			int FGBG_HISTORY_, NMIXTURES_, BRIGHTNESS_GAIN_, DILATION_ITER_;
 			float BACKGROUND_RATIO_, FGBG_LEARNING_RATE_, REMOVE_GROUND_ITER_, BACKGROUND_CONTOUR_CIRCULARITY_;
-
-			// declare sun compensation parameters
-			int BRIGHTNESS_THRES, SKY_THRES, SUN_BRIGHTNESS_GAIN;
-			float MAX_SUN_CONTRAST_GAIN;
 
 			// detector functions
 			void start_record();
@@ -139,11 +135,11 @@ namespace mcmt {
 			void publish_info();
 
 			// declare detection and tracking functions
+			void apply_env_compensation();
+			cv::Mat apply_bg_subtractions(int frame_id);
 			void detect_objects();
-			cv::Mat remove_ground();
-			cv::Mat apply_bg_subtractions();
-			void apply_sun_compensation();
-			cv::Mat scale_hsv_pixels(cv::Mat sky);
+			cv::Mat remove_ground(int masked_id);
+			void remove_overlapped_detections();
 			void predict_new_locations_of_tracks();
 			void clear_track_variables();
 			void detection_to_track_assignment_KF();
