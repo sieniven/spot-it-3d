@@ -2,7 +2,7 @@
 
 ## 1. Introduction
 
-**SPOT-IT 3D** (Simultaneous Positioning, Observing, Tracking, Identifying Targets in 3D) is a project by Mechanical Engineering @ National University of Singapore. This project aims to develop a software that utilizes a multi-camera surveillance system for real-time multiple target tracking capabilities. This software capability is highly applicable for monitoring specific areas, and some use cases include monitoring airspaces, traffic junctions, etc.
+**SPOT-IT 3D** (Simultaneous Positioning, Observing, Tracking, Identifying Targets in 3D) is a project by Temasek Laboratories @ National University of Singapore. This project aims to develop an application that utilizes a multi-camera surveillance system for real-time multiple target tracking capabilities, focusing on small and fast moving targets. This software capability is highly applicable for monitoring specific areas, and some use cases include monitoring airspaces, traffic junctions, etc.
 
 
 ## 2. Table of Contents
