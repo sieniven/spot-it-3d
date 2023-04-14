@@ -1,4 +1,4 @@
-FROM ros:eloquent-ros-base-bionic
+FROM --platform=linux/arm64 ros:foxy-ros-base-focal
 LABEL maintainer="Niven"
 
 # setup timezone
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends python3-dev pyt
 	libwebp-dev libgstreamer-plugins-base1.0-dev libgstreamer1.0-dev  libfreetype6-dev libpng-dev\
     && rm -rf /var/lib/apt/lists/
 
-RUN apt-get update && apt-get install -y ros-eloquent-launch* --no-install-recommends \
+RUN apt-get update && apt-get install -y ros-foxy-launch* --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 USER root

@@ -1,0 +1,27 @@
+name: Docker build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  linux-x64:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Build image
+      run: cd ./mcmt-dockerfiles && docker-compose -f mcmt-multi-launch.yaml build
+
+    - name: Dockerhub login
+      uses: docker/login-action@v2
+      with:
+        username: ${{ env.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+    - name: Push to Dockerhub registry
+      run: |
+        docker push nivensie/spotit3d:mcmt-latest
+        docker manifest create nivensie/spotit3d:mcmt-latest nivensie/spotit3d:mcmt-latest
+        docker manifest annotate --arch amd64 nivensie/spotit3d:mcmt-latest nivensie/spotit3d:mcmt-latest
+        docker manifest inspect nivensie/spotit3d:mcmt-latest
+        docker manifest push nivensie/spotit3d:mcmt-latest

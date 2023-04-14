@@ -2,7 +2,7 @@
 set -e
 
 # setup ros2 environment
-source "/opt/ros/eloquent/setup.bash"
+source "/opt/ros/foxy/setup.bash"
 
 # colcon build ros2 packages
 colcon build --symlink-install

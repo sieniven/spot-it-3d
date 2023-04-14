@@ -3,9 +3,9 @@ version: '3.3'
 services:
   mcmt-detector:
     build:
-      dockerfile: ./mcmt-dockerfiles/Dockerfile.mcmt
+      dockerfile: ./mcmt-dockerfiles/Dockerfile-x64.mcmt
       context: ..
-    image: spotit3d/mcmt:mcmt
+    image: nivensie/spotit3d:mcmt-latest-x64
     network_mode: "host"
     devices:
       - "/dev/video0:/dev/video0"
@@ -19,9 +19,9 @@ services:
   
   mcmt-tracker:
     build:
-      dockerfile: ./mcmt-dockerfiles/Dockerfile.mcmt
+      dockerfile: ./mcmt-dockerfiles/Dockerfile-x64.mcmt
       context: ..
-    image: spotit3d/mcmt:mcmt
+    image: nivensie/spotit3d:mcmt-latest-x64
     network_mode: "host"
     devices:
       - "/dev/video0:/dev/video0"
