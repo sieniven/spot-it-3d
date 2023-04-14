@@ -1,0 +1,49 @@
+name: Docker build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  linux-x64:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Build linux-x64 image
+      run: docker build -f ./mcmt-dockerfiles/x64-mcmt.dockerfile -t nivensie/spotit3d:mcmt-latest-x64
+
+    - name: Dockerhub login
+      uses: docker/login-action@v2
+      with:
+        username: ${{ env.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+    - name: Push to Dockerhub registry
+      run: |
+        docker push nivensie/spotit3d:mcmt-latest-x64
+        docker manifest create nivensie/spotit3d:mcmt-latest nivensie/spotit3d:mcmt-latest-x64
+        docker manifest annotate --arch amd64 nivensie/spotit3d:mcmt-latest nivensie/spotit3d:mcmt-latest-x64
+        docker manifest inspect nivensie/spotit3d:mcmt-latest
+        docker manifest push nivensie/spotit3d:mcmt-latest
+  
+  linux-arm64:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Build linux-arm64 image
+      run: docker build -f ./mcmt-dockerfiles/arm64-mcmt.dockerfile -t nivensie/spotit3d:mcmt-latest-arm64
+
+    - name: Dockerhub login
+      uses: docker/login-action@v2
+      with:
+        username: ${{ env.DOCKER_HUB_USER }}
+        password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+    - name: Push to Dockerhub registry
+      run: |
+        docker push nivensie/spotit3d:mcmt-latest-arm64
+        docker manifest create nivensie/spotit3d:mcmt-latest --amend nivensie/spotit3d:mcmt-latest-arm64
+        docker manifest annotate --arch arm64 nivensie/spotit3d:mcmt-latest nivensie/spotit3d:mcmt-latest-arm64
+        docker manifest inspect nivensie/spotit3d:mcmt-latest
+        docker manifest push nivensie/spotit3d:mcmt-latest
