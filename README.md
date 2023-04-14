@@ -170,6 +170,13 @@ cd spot-it-3d/mcmt-dockerfiles/
 sudo docker-compose -f mcmt-multi-launch.yaml build
 ```
 
+### 6.3 Pull built images from Dockerhub registry
+
+You may also pull the built images in x64 or arm64 target architectures in the docker registry: 
+```
+https://hub.docker.com/repository/docker/nivensie/spotit3d/
+```
+
 ## 7. Configurations
 
 * To change the configurations of the software, please use the configurations file ***"config.yaml"***. The file can be found in *"~/spot-it-3d/mcmt-tracking/mcmt-tracking/src/mcmt_bringup/config/config.yaml"*.
@@ -222,7 +229,7 @@ sudo docker-compose -f mcmt-multi-launch.yaml build
 
 ### 8.2 Run software on Docker
 
-### 1. Ensure that camera ports are configured correctly
+1. Ensure that camera ports are configured correctly
 
 * We will link our server camera sensor ports with our container ports using the docker-compose files. Go into **"mcmt-dockerfiles/mcmt-tracker-launch.yaml"**.
 * Link server video device ports with container video device ports under each **"services"**.
