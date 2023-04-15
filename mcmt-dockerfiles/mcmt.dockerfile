@@ -8,7 +8,7 @@ RUN echo 'Asia/Singapore' > /etc/timezone \
 
 # install core linux tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    apt-utils lsb-release sudo unzip wget ssh vim curl git pkg-config \
+    apt-utils lsb-release sudo unzip wget ssh curl git pkg-config \
 	libcanberra-gtk-module libcanberra-gtk3-module build-essential gcc \
 	libfreetype6-dev libpng-dev libhdf5-serial-dev libcurl3-dev rsync \
 	software-properties-common unzip zip zlib1g-dev apt-utils lsb-release \
@@ -39,7 +39,6 @@ RUN mkdir -p /etc/sudoers.d \
     && useradd -d ${home} -u ${uid} -g ${gid} -m -s /bin/bash ${user} \
     && echo "${user} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/sudoers_${user}
 USER ${user}
-RUN sudo usermod -a -G video ${user}
 
 WORKDIR ${home}
 
